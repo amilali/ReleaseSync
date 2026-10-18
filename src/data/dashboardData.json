@@ -1,0 +1,276 @@
+{
+  "system": {
+    "title": "Release Sync",
+    "subtitle": "Enterprise Release Management Platform",
+    "company": "Allstate",
+    "tagline": "You're in good hands.®",
+    "currentRelease": "Release 2024.10",
+    "availableReleases": [
+      "Release 2024.10",
+      "Release 2024.09",
+      "Release 2024.08",
+      "Hotfix 2024.10.1"
+    ],
+    "lastUpdated": "Oct 15, 2024 10:32 AM",
+    "currentUser": {
+      "name": "John Doe",
+      "role": "Release Manager",
+      "initials": "JD",
+      "unreadNotifications": 3
+    }
+  },
+  "metrics": {
+    "totalRepositories": {
+      "value": 24,
+      "change": 2,
+      "changeType": "positive",
+      "subtext": "Active services"
+    },
+    "onTrack": {
+      "value": 16,
+      "percentage": 67,
+      "subtext": "Ready for release"
+    },
+    "versionDiscrepancies": {
+      "value": 4,
+      "percentage": 17,
+      "subtext": "Require attention",
+      "isAlert": true
+    },
+    "pendingChangeOrders": {
+      "value": 3,
+      "percentage": 12,
+      "subtext": "Awaiting approval"
+    },
+    "releasesThisMonth": {
+      "value": 8,
+      "percentage": 33,
+      "subtext": "5 successful · 3 active"
+    }
+  },
+  "burnUpChart": {
+    "title": "Release Burn-up Chart",
+    "subtitle": "Release scope and validated components over time",
+    "codeFreeze": {
+      "date": "Oct 10, 2024",
+      "label": "Code Freeze",
+      "xAxisPoint": "Oct 10"
+    },
+    "dataPoints": [
+      { "date": "Oct 1", "planned": 0, "validated": 0, "postFreeze": null },
+      { "date": "Oct 4", "planned": 6, "validated": 4, "postFreeze": null },
+      { "date": "Oct 7", "planned": 9, "validated": 7, "postFreeze": null },
+      { "date": "Oct 10", "planned": 10, "validated": 8, "postFreeze": 8 },
+      { "date": "Oct 13", "planned": 13, "validated": 9, "postFreeze": 14 },
+      { "date": "Oct 15", "planned": 16, "validated": 12, "postFreeze": 17 }
+    ],
+    "series": [
+      { "key": "planned", "name": "Planned Scope", "color": "#2563eb" },
+      { "key": "validated", "name": "Validated Components", "color": "#10b981" },
+      { "key": "postFreeze", "name": "Post-Freeze Changes", "color": "#ef4444" }
+    ]
+  },
+  "changeActivity": {
+    "title": "Change Activity (Commits/Builds)",
+    "subtitle": "Changes before and after code freeze",
+    "bars": [
+      {
+        "id": "before-freeze",
+        "label": "Before Freeze",
+        "sublabel": "(up to Oct 10)",
+        "value": 26,
+        "color": "#1d4ed8"
+      },
+      {
+        "id": "after-freeze",
+        "label": "After Freeze",
+        "sublabel": "(Oct 11 - Oct 15)",
+        "value": 8,
+        "color": "#f59e0b"
+      },
+      {
+        "id": "approved-exceptions",
+        "label": "Approved Exceptions",
+        "sublabel": "",
+        "value": 5,
+        "color": "#10b981"
+      },
+      {
+        "id": "unverified-changes",
+        "label": "Unverified Changes",
+        "sublabel": "",
+        "value": 3,
+        "color": "#ef4444"
+      }
+    ]
+  },
+  "codeFreezeDetails": {
+    "date": "Oct 10, 2024 11:59 PM (CT)",
+    "daysSinceFreeze": 5,
+    "stats": [
+      { "label": "Post-Freeze Changes", "value": 8, "color": "#ef4444" },
+      { "label": "Approved Exceptions", "value": 5, "color": "#10b981" },
+      { "label": "Unverified", "value": 3, "color": "#f59e0b" }
+    ]
+  },
+  "releaseReadiness": {
+    "percentage": 67,
+    "breakdown": [
+      { "status": "Ready", "count": 16, "color": "#10b981" },
+      { "status": "Needs Review", "count": 4, "color": "#f59e0b" },
+      { "status": "Blocked", "count": 2, "color": "#ef4444" },
+      { "status": "Not Started", "count": 2, "color": "#94a3b8" }
+    ],
+    "checklist": [
+      { "item": "Regression Testing Passed", "category": "Testing", "status": "Ready", "owner": "QA Lead" },
+      { "item": "Security SAST/DAST Clearance", "category": "Security", "status": "Ready", "owner": "SecOps" },
+      { "item": "Performance Benchmark Verification", "category": "Performance", "status": "Ready", "owner": "DevOps" },
+      { "item": "Claims Gateway Hotfix Review", "category": "Code Quality", "status": "Needs Review", "owner": "Arch Team" },
+      { "item": "Producer Portal Version Reconciliation", "category": "Code Quality", "status": "Blocked", "owner": "Lead Dev" },
+      { "item": "CAB Change Advisory Board Approval", "category": "Governance", "status": "Needs Review", "owner": "Release Mgr" },
+      { "item": "Production Runbook Signoff", "category": "Operations", "status": "Ready", "owner": "Ops SRE" }
+    ]
+  },
+  "repositories": [
+    {
+      "id": "repo-1",
+      "name": "Claims Gateway",
+      "environment": "PROD",
+      "prodVersion": "v2.9.1",
+      "nonProdVersion": "v2.9.4",
+      "versionStatus": "mismatch-alert",
+      "jenkinsBuild": "#458",
+      "jenkinsUrl": "https://jenkins.allstate.internal/job/claims-gateway/458",
+      "lastDeployed": "Oct 14, 2024 02:15 AM",
+      "changeOrder": "CHG123456",
+      "status": "Review",
+      "statusType": "warning"
+    },
+    {
+      "id": "repo-2",
+      "name": "Agency API",
+      "environment": "UAT",
+      "prodVersion": "v3.2.0",
+      "nonProdVersion": "v3.2.0",
+      "versionStatus": "match",
+      "jenkinsBuild": "#892",
+      "jenkinsUrl": "https://jenkins.allstate.internal/job/agency-api/892",
+      "lastDeployed": "Oct 13, 2024 11:42 PM",
+      "changeOrder": "CHG123457",
+      "status": "Match",
+      "statusType": "success"
+    },
+    {
+      "id": "repo-3",
+      "name": "Producer Portal",
+      "environment": "PROD",
+      "prodVersion": "v1.8.2",
+      "nonProdVersion": "v1.8.1",
+      "versionStatus": "mismatch-danger",
+      "jenkinsBuild": "#321",
+      "jenkinsUrl": "https://jenkins.allstate.internal/job/producer-portal/321",
+      "lastDeployed": "Oct 12, 2024 09:18 PM",
+      "changeOrder": "CHG123458",
+      "status": "Investigate",
+      "statusType": "danger"
+    },
+    {
+      "id": "repo-4",
+      "name": "Notification Service",
+      "environment": "STAGING",
+      "prodVersion": "v1.4.0",
+      "nonProdVersion": "v1.5.0",
+      "versionStatus": "progress",
+      "jenkinsBuild": "#654",
+      "jenkinsUrl": "https://jenkins.allstate.internal/job/notification-service/654",
+      "lastDeployed": "Oct 15, 2024 08:05 AM",
+      "changeOrder": "CHG123459",
+      "status": "On Track",
+      "statusType": "success"
+    },
+    {
+      "id": "repo-5",
+      "name": "Reporting Service",
+      "environment": "PROD",
+      "prodVersion": "v2.1.0",
+      "nonProdVersion": "v2.2.0",
+      "versionStatus": "progress",
+      "jenkinsBuild": "#789",
+      "jenkinsUrl": "https://jenkins.allstate.internal/job/reporting-service/789",
+      "lastDeployed": "Oct 11, 2024 05:33 PM",
+      "changeOrder": "CHG123460",
+      "status": "On Track",
+      "statusType": "success"
+    },
+    {
+      "id": "repo-6",
+      "name": "Customer Portal",
+      "environment": "UAT",
+      "prodVersion": "v2.3.1",
+      "nonProdVersion": "v2.3.1",
+      "versionStatus": "match",
+      "jenkinsBuild": "#401",
+      "jenkinsUrl": "https://jenkins.allstate.internal/job/customer-portal/401",
+      "lastDeployed": "Oct 10, 2024 03:21 PM",
+      "changeOrder": "CHG123461",
+      "status": "Match",
+      "statusType": "success"
+    },
+    {
+      "id": "repo-7",
+      "name": "Policy Admin Engine",
+      "environment": "PROD",
+      "prodVersion": "v4.1.0",
+      "nonProdVersion": "v4.1.2",
+      "versionStatus": "mismatch-alert",
+      "jenkinsBuild": "#512",
+      "jenkinsUrl": "https://jenkins.allstate.internal/job/policy-admin/512",
+      "lastDeployed": "Oct 15, 2024 09:30 AM",
+      "changeOrder": "CHG123462",
+      "status": "Review",
+      "statusType": "warning"
+    },
+    {
+      "id": "repo-8",
+      "name": "Payment Gateway",
+      "environment": "PROD",
+      "prodVersion": "v1.9.0",
+      "nonProdVersion": "v1.9.0",
+      "versionStatus": "match",
+      "jenkinsBuild": "#229",
+      "jenkinsUrl": "https://jenkins.allstate.internal/job/payment-gateway/229",
+      "lastDeployed": "Oct 09, 2024 04:15 PM",
+      "changeOrder": "CHG123463",
+      "status": "Match",
+      "statusType": "success"
+    },
+    {
+      "id": "repo-9",
+      "name": "Document Generator",
+      "environment": "STAGING",
+      "prodVersion": "v3.0.4",
+      "nonProdVersion": "v3.0.5",
+      "versionStatus": "progress",
+      "jenkinsBuild": "#114",
+      "jenkinsUrl": "https://jenkins.allstate.internal/job/doc-gen/114",
+      "lastDeployed": "Oct 14, 2024 01:40 PM",
+      "changeOrder": "CHG123464",
+      "status": "On Track",
+      "statusType": "success"
+    },
+    {
+      "id": "repo-10",
+      "name": "Identity & Auth Service",
+      "environment": "PROD",
+      "prodVersion": "v2.0.0",
+      "nonProdVersion": "v1.9.9",
+      "versionStatus": "mismatch-danger",
+      "jenkinsBuild": "#908",
+      "jenkinsUrl": "https://jenkins.allstate.internal/job/auth-service/908",
+      "lastDeployed": "Oct 13, 2024 10:10 AM",
+      "changeOrder": "CHG123465",
+      "status": "Investigate",
+      "statusType": "danger"
+    }
+  ]
+}
