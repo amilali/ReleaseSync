@@ -1,7 +1,7 @@
 import React from 'react';
 import { PieChart, Info } from 'lucide-react';
 
-export default function ReleaseReadiness({ readinessData, onViewChecklist }) {
+export default function ReleaseReadiness({ readinessData, onViewChecklist, compact = false }) {
   if (!readinessData) return null;
 
   const total = readinessData.breakdown.reduce((sum, item) => sum + item.count, 0) || 24;
@@ -24,24 +24,24 @@ export default function ReleaseReadiness({ readinessData, onViewChecklist }) {
   });
 
   return (
-    <div className="panel-card">
-      <div className="panel-header">
+    <div className={compact ? 'metric-card readiness-metric-card' : 'panel-card'}>
+      <div className={`panel-header${compact ? ' readiness-metric-header' : ''}`}>
         <div className="panel-title">
           <PieChart size={16} color="#2563eb" />
           <span>Release Readiness</span>
-          <Info size={13} className="info-icon" title="Aggregated service readiness breakdown" />
+          {!compact && <Info size={13} className="info-icon" title="Aggregated service readiness breakdown" />}
         </div>
         <button 
           className="panel-header-btn"
           onClick={onViewChecklist}
         >
-          View Checklist
+          {compact ? 'Checklist' : 'View Checklist'}
         </button>
       </div>
 
-      <div className="readiness-content">
+      <div className={`readiness-content${compact ? ' readiness-content-compact' : ''}`}>
         {/* Donut Chart */}
-        <div className="donut-chart-box">
+        <div className={`donut-chart-box${compact ? ' donut-chart-compact' : ''}`}>
           <svg viewBox="0 0 100 100" width="100%" height="100%" style={{ transform: 'rotate(-90deg)' }}>
             {/* Background track circle */}
             <circle

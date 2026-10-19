@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Search, Calendar, Bell, ChevronDown } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Search, Calendar, Bell, ChevronDown, ArrowUpRight, Sparkles } from 'lucide-react';
 
 export default function Navbar({ 
   searchQuery, 
   onSearchChange, 
+  repositories = [],
+  onAskAI,
   currentRelease, 
   availableReleases, 
   onSelectRelease,
@@ -14,6 +16,67 @@ export default function Navbar({
 }) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
+
+  const suggestions = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [];
+
+    return repositories.map((repo) => {
+      const searchableFields = [
+        ['Repository', repo.name],
+        ['Environment', repo.environment],
+        ['Production version', repo.prodVersion],
+        ['Non-production version', repo.nonProdVersion],
+        ['HF version', repo.hfVersion],
+        ['Build', repo.jenkinsBuild],
+        ['Change order', repo.changeOrder],
+        ['Status', repo.status],
+      ];
+      const matchedField = searchableFields.find(([, value]) => value?.toLowerCase().includes(query));
+      return matchedField ? { repo, matchedBy: matchedField[0] } : null;
+    }).filter(Boolean).slice(0, 5);
+  }, [repositories, searchQuery]);
+
+  const selectSuggestion = (repo) => {
+    onSearchChange?.(repo.name);
+    setIsSearchFocused(false);
+    setActiveSuggestion(-1);
+  };
+
+  const selectAskSuggestion = (prompt = 'Summarize release readiness') => {
+    onSearchChange?.('');
+    setIsSearchFocused(false);
+    setActiveSuggestion(-1);
+    onAskAI?.(prompt);
+  };
+
+  const handleSearchKeyDown = (event) => {
+    const askActionAvailable = !searchQuery.trim() || /^\/ask(?:\s|$)/i.test(searchQuery.trim());
+    const optionCount = suggestions.length || (askActionAvailable ? 1 : 0);
+    if (event.key === 'ArrowDown' && optionCount) {
+      event.preventDefault();
+      setActiveSuggestion((index) => (index + 1) % optionCount);
+    } else if (event.key === 'ArrowUp' && optionCount) {
+      event.preventDefault();
+      setActiveSuggestion((index) => (index <= 0 ? optionCount - 1 : index - 1));
+    } else if (event.key === 'Enter' && activeSuggestion >= 0) {
+      event.preventDefault();
+      const suggestion = suggestions[activeSuggestion];
+      if (!suggestion || suggestion.type === 'ask') {
+        const prompt = searchQuery.trim().replace(/^\/ask\s*/i, '') || 'Summarize release readiness';
+        selectAskSuggestion(prompt);
+      }
+      else selectSuggestion(suggestion.repo);
+    } else if (event.key === 'Enter' && /^\/ask(?:\s|$)/i.test(searchQuery.trim())) {
+      event.preventDefault();
+      selectAskSuggestion(searchQuery.trim().replace(/^\/ask\s*/i, '') || 'Summarize release readiness');
+    } else if (event.key === 'Escape') {
+      setIsSearchFocused(false);
+      setActiveSuggestion(-1);
+    }
+  };
 
   return (
     <header className="top-navbar">
@@ -38,18 +101,100 @@ export default function Navbar({
       </div>
 
       {/* Center Search Input */}
-      <div className="nav-center">
-        <div className="search-box">
-          <Search size={16} />
-          <input
+        <div className="nav-center">
+          <div className="search-box">
+            <Search size={16} />
+            <input
             type="text"
             aria-label="Search repositories, versions, builds, and change orders"
-            placeholder="Search repositories, versions, builds, change orders..."
-            value={searchQuery}
-            onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
+              placeholder="Search repositories, versions, builds, change orders..."
+              value={searchQuery}
+              onChange={(e) => {
+                onSearchChange && onSearchChange(e.target.value);
+                setActiveSuggestion(-1);
+              }}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => window.setTimeout(() => setIsSearchFocused(false), 120)}
+              onKeyDown={handleSearchKeyDown}
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={isSearchFocused}
+              aria-controls="global-search-suggestions"
+            aria-activedescendant={activeSuggestion >= 0 ? `search-suggestion-${activeSuggestion}` : undefined}
           />
+          <svg className="search-border-orbit" viewBox="0 0 400 36" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+              <linearGradient id="search-orbit-gradient" x1="0" y1="0" x2="400" y2="36" gradientUnits="userSpaceOnUse">
+                <stop offset="0" stopColor="#bfdbfe" stopOpacity="0" />
+                <stop offset="0.35" stopColor="#60a5fa" />
+                <stop offset="0.7" stopColor="#2563eb" />
+                <stop offset="1" stopColor="#93c5fd" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <rect x="1" y="1" width="398" height="34" rx="16" fill="none" stroke="url(#search-orbit-gradient)" strokeWidth="2" strokeLinecap="round" />
+          </svg>
         </div>
-      </div>
+          {isSearchFocused && (
+            <div className="search-suggestions" id="global-search-suggestions" role="listbox" aria-label="Search suggestions">
+              <div className="search-suggestions-label">
+                {!searchQuery.trim() ? 'SUGGESTED ACTION' : /^\/ask(?:\s|$)/i.test(searchQuery.trim()) ? 'AI ASSISTANT' : suggestions.length ? 'MATCHING REPOSITORIES' : 'NO MATCHES'}
+              </div>
+              {!searchQuery.trim() ? (
+                <button
+                  className={`search-suggestion ${activeSuggestion === 0 ? 'active' : ''}`}
+                  id="search-suggestion-0"
+                  type="button"
+                  role="option"
+                  aria-selected={activeSuggestion === 0}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => selectAskSuggestion()}
+                >
+                  <span className="search-suggestion-icon search-suggestion-ai"><Sparkles size={15} /></span>
+                  <span className="search-suggestion-copy">
+                    <strong><kbd>/ask</kbd> Summarize this release</strong>
+                    <small>Ask AI about readiness, mismatches, and approvals</small>
+                  </span>
+                  <ArrowUpRight size={14} className="search-suggestion-arrow" />
+                </button>
+              ) : /^\/ask(?:\s|$)/i.test(searchQuery.trim()) ? (
+                <button
+                  className={`search-suggestion ${activeSuggestion === 0 ? 'active' : ''}`}
+                  id="search-suggestion-0"
+                  type="button"
+                  role="option"
+                  aria-selected={activeSuggestion === 0}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => selectAskSuggestion(searchQuery.trim().replace(/^\/ask\s*/i, '') || 'Summarize release readiness')}
+                >
+                  <span className="search-suggestion-icon search-suggestion-ai"><Sparkles size={15} /></span>
+                  <span className="search-suggestion-copy">
+                    <strong>Ask AI: {searchQuery.trim().replace(/^\/ask\s*/i, '') || 'Summarize release readiness'}</strong>
+                    <small>Analyze current release data</small>
+                  </span>
+                  <ArrowUpRight size={14} className="search-suggestion-arrow" />
+                </button>
+              ) : suggestions.length ? suggestions.map(({ repo, matchedBy }, index) => (
+                <button
+                  className={`search-suggestion ${activeSuggestion === index ? 'active' : ''}`}
+                  id={`search-suggestion-${index}`}
+                  key={repo.id}
+                  type="button"
+                  role="option"
+                  aria-selected={activeSuggestion === index}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => selectSuggestion(repo)}
+                >
+                  <span className="search-suggestion-icon"><Search size={14} /></span>
+                  <span className="search-suggestion-copy">
+                    <strong>{repo.name}</strong>
+                    <small>{repo.environment} · {repo.prodVersion} · {matchedBy}</small>
+                  </span>
+                  <ArrowUpRight size={14} className="search-suggestion-arrow" />
+                </button>
+              )) : <p className="search-suggestions-empty">Try a repository, version, build, or change order—or type <kbd>/ask</kbd>.</p>}
+            </div>
+          )}
+        </div>
 
       {/* Right Controls: Release selector, Notifications, Profile */}
       <div className="nav-right">

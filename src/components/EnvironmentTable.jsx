@@ -4,10 +4,13 @@ import {
   MoreHorizontal, 
   CheckCircle2, 
   AlertTriangle, 
-  XCircle 
+  XCircle,
+  Sparkles,
+  Download
 } from 'lucide-react';
+import { downloadRepositoryManifest } from '../utils/exportRepositoryManifest';
 
-export default function EnvironmentTable({ repositories, totalRepositories, searchQuery = '', onActionClick }) {
+export default function EnvironmentTable({ repositories, totalRepositories, foundationVersion, releaseName, searchQuery = '', onActionClick, onAIActivate }) {
   const [envFilter, setEnvFilter] = useState('All Environments');
   const [statusFilter, setStatusFilter] = useState('All Statuses');
 
@@ -21,6 +24,7 @@ export default function EnvironmentTable({ repositories, totalRepositories, sear
         repo.changeOrder.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.prodVersion.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.nonProdVersion.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        repo.hfVersion.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.jenkinsBuild.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.lastDeployed.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.environment.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -84,6 +88,28 @@ export default function EnvironmentTable({ repositories, totalRepositories, sear
           <p className="card-subtitle">Showing {filteredRepos.length} of {repositories?.length || 0} listed repositories · {totalRepositories} total for this release</p>
         </div>
 
+        <div className="table-toolbar-actions">
+          <button
+            className="manifest-export-btn"
+            type="button"
+            disabled={filteredRepos.length === 0}
+            onClick={() => downloadRepositoryManifest(filteredRepos, { releaseName, foundationVersion })}
+            title={`Download ${filteredRepos.length} filtered repositories as an Excel manifest`}
+          >
+            <Download size={14} />
+            <span>Export Manifest</span>
+          </button>
+          <button
+            className="table-ai-btn"
+            type="button"
+            onClick={onAIActivate}
+            title="Open the AI Assistant for release analysis"
+          >
+            <Sparkles size={14} />
+            <span>AI Assistant</span>
+          </button>
+        </div>
+
         <div className="table-filter-group">
           {/* Environments Filter */}
           <select 
@@ -121,9 +147,14 @@ export default function EnvironmentTable({ repositories, totalRepositories, sear
           <thead>
             <tr>
               <th className="sticky-repository" style={{ width: '170px' }}>Repository</th>
-              <th className="column-environment" style={{ width: '72px' }}>Environment</th>
-              <th style={{ width: '86px' }}>Prod Version</th>
+              <th className="foundation-column foundation-column-header" style={{ width: '112px' }}>
+                <div className="foundation-header-content">
+                  <span className="foundation-version-label">Foundation {foundationVersion}</span>
+                  <span>Prod Version</span>
+                </div>
+              </th>
               <th style={{ width: '96px' }}>Non-Prod Version</th>
+              <th style={{ width: '86px' }}>HF Version</th>
               <th className="column-secondary" style={{ width: '80px' }}>Jenkins Build</th>
               <th className="column-secondary" style={{ width: '120px' }}>Last Deployed</th>
               <th style={{ width: '90px' }}>Change Order</th>
@@ -145,16 +176,14 @@ export default function EnvironmentTable({ repositories, totalRepositories, sear
                     </div>
                   </td>
 
-                  {/* Environment */}
-                  <td className="column-environment">
-                    <span className={`badge-env ${repo.environment.toLowerCase()}`}>
-                      {repo.environment}
-                    </span>
+                  {/* Prod Version */}
+                  <td className="foundation-column">
+                    <span className="version-text">{repo.prodVersion}</span>
                   </td>
 
-                  {/* Prod Version */}
+                  {/* Hotfix Version */}
                   <td>
-                    <span className="version-text">{repo.prodVersion}</span>
+                    <span className="version-text hf-version-text">{repo.hfVersion}</span>
                   </td>
 
                   {/* Non-Prod Version */}

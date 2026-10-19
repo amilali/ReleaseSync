@@ -1,4 +1,5 @@
 import React from 'react';
+import allstateHandsLogo from '../assets/allstate-hands-transparent.png';
 import { 
   LayoutDashboard, 
   Layers, 
@@ -28,6 +29,7 @@ export default function Sidebar({ activeNav = 'Dashboard', onNavClick }) {
         <div className="sidebar-header">
           {/* Allstate Logo Text in Sidebar */}
           <div className="sidebar-allstate-logo">
+            <img src={allstateHandsLogo} alt="" aria-hidden="true" />
             <svg viewBox="0 0 140 32" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
               <text x="0" y="24" fill="#ffffff" fontFamily="'Inter', 'Plus Jakarta Sans', sans-serif" fontSize="23" fontWeight="800" letterSpacing="-0.5">
                 Allstate

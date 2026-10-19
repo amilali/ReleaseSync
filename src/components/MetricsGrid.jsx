@@ -3,12 +3,12 @@ import {
   Box, 
   Tag, 
   AlertTriangle, 
-  FileText, 
   Rocket, 
   ArrowUp 
 } from 'lucide-react';
+import ReleaseReadiness from './ReleaseReadiness';
 
-export default function MetricsGrid({ metrics }) {
+export default function MetricsGrid({ metrics, readinessData, onViewChecklist }) {
   if (!metrics) return null;
 
   return (
@@ -87,30 +87,12 @@ export default function MetricsGrid({ metrics }) {
         </div>
       </div>
 
-      {/* 4. Pending Change Orders */}
-      <div className="metric-card">
-        <div className="metric-card-top">
-          <div className="metric-icon-wrapper" style={{ backgroundColor: '#fef3c7', color: '#d97706' }}>
-            <FileText size={20} strokeWidth={2.2} />
-          </div>
-          <div className="metric-info">
-            <span className="metric-label">Pending Change Orders</span>
-            <div className="metric-value-row">
-              <span className="metric-value">{metrics.pendingChangeOrders.value}</span>
-            </div>
-            <span className="metric-subtext">{metrics.pendingChangeOrders.subtext}</span>
-          </div>
-        </div>
-        <div className="metric-progress-wrapper">
-          <span className="progress-pct">{metrics.pendingChangeOrders.percentage}%</span>
-          <div className="progress-track">
-            <div 
-              className="progress-bar-fill" 
-              style={{ width: `${metrics.pendingChangeOrders.percentage}%`, backgroundColor: '#f59e0b' }} 
-            />
-          </div>
-        </div>
-      </div>
+      {/* 4. Release Readiness */}
+      <ReleaseReadiness
+        readinessData={readinessData}
+        onViewChecklist={onViewChecklist}
+        compact
+      />
 
       {/* 5. Releases This Month */}
       <div className="metric-card">

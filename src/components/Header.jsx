@@ -15,8 +15,8 @@ export default function Header({ lastUpdated, onRefresh, activeNav = 'Dashboard'
   return (
     <div className="dashboard-header">
       <div className="header-title-area">
-        <h1>{activeNav === 'Reports' ? 'Release Reports' : 'Release Sync Dashboard'}</h1>
-        <p>{activeNav === 'Reports' ? 'Review release scope, validation progress, and change activity.' : 'Track, validate, and deploy releases across Allstate repositories.'}</p>
+        <h1>{activeNav === 'Reports' ? 'Release Reports' : activeNav === 'AI Assistant' ? 'AI Assistant' : activeNav === 'Code Freeze' ? 'Code Freeze' : 'Release Sync Dashboard'}</h1>
+        <p>{activeNav === 'Reports' ? 'Review release scope, validation progress, and change activity.' : activeNav === 'AI Assistant' ? 'Explore release data with contextual, explainable analysis.' : activeNav === 'Code Freeze' ? 'Manage freeze timing, exceptions, and post-freeze changes.' : 'Track, validate, and deploy releases across Allstate repositories.'}</p>
       </div>
 
       <div className="header-actions">
