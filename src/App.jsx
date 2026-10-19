@@ -162,7 +162,6 @@ export default function App() {
                 totalRepositories={data.metrics.totalRepositories.value}
                 foundationVersion={data.system.foundationVersion}
                 releaseName={selectedRelease}
-                searchQuery={searchQuery}
                 onActionClick={(repo) => setSelectedRepoForAction(repo)}
                 onAIActivate={() => setActiveNav('AI Assistant')}
               />

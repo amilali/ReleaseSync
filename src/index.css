@@ -163,7 +163,7 @@ body {
   12% { opacity: 1; }
   48% { stroke-dashoffset: 0; opacity: 1; }
   78% { stroke-dashoffset: 0; opacity: 1; }
-  100% { stroke-dashoffset: calc(var(--cube-draw-length) * -1); opacity: 0; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
 }
 
 .preloader-cube-outline { --cube-draw-length: 150; }
@@ -334,19 +334,7 @@ a {
   align-items: center;
 }
 
-.hands-watermark {
-  width: 58px;
-  height: 58px;
-  opacity: 0.22;
-  transition: opacity 0.2s;
-}
-
-.hands-watermark:hover {
-  opacity: 0.4;
-}
-
 .tagline {
-  margin-top: 5px;
   font-size: 10px;
   color: rgba(255, 255, 255, 0.8);
   font-weight: 500;
