@@ -1,23 +1,147 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   FolderGit2, 
   MoreHorizontal, 
   CheckCircle2, 
   AlertTriangle, 
   XCircle,
-  Sparkles,
-  Download
+  Download,
+  Info,
+  X,
+  Filter
 } from 'lucide-react';
 import { downloadRepositoryManifest } from '../utils/exportRepositoryManifest';
 
-export default function EnvironmentTable({ repositories, totalRepositories, foundationVersion, releaseName, searchQuery = '', onActionClick, onAIActivate }) {
-  const [envFilter, setEnvFilter] = useState('All Environments');
+const COLUMN_OPTIONS = [
+  ['repository', 'Repository'],
+  ['prodVersion', 'Prod Version'],
+  ['nonProdVersion', 'Non-Prod Version'],
+  ['hfVersion', 'HF Version'],
+  ['lastDeployed', 'Last Deployed'],
+  ['changeOrder', 'Change Order'],
+  ['status', 'Status'],
+  ['actions', 'Actions']
+];
+const STATUS_OPTIONS = [
+  ['All Statuses', 'All Statuses'],
+  ['Review', 'Mismatch review'],
+  ['Match', 'Versions match'],
+  ['Investigate', 'Critical mismatch'],
+  ['On Track', 'Deployment in progress']
+];
+const COLUMN_STAGGER_DELAY = 36;
+const COLUMN_ENTER_DURATION = 360;
+const COLUMN_EXIT_DURATION = 180;
+const COMPONENT_SCAN_DURATION = 700;
+
+function ColumnVisibilityFilter({ visibleColumns, visibleColumnCount, isOpen, setIsOpen, selectAllRef, selectAllColumns, deselectAllColumns, toggleColumn }) {
+  return (
+    <div className="status-filter-control">
+      <button
+        className={`status-filter-icon-button ${isOpen ? 'active' : ''}`}
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        aria-label={`Choose visible columns; ${visibleColumnCount} of ${COLUMN_OPTIONS.length} shown`}
+        title="Choose visible columns"
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        <Filter size={13} aria-hidden="true" />
+      </button>
+      {isOpen && (
+        <div className="column-picker-menu column-visibility-menu" role="group" aria-label="Choose visible columns">
+          <div className="filter-menu-section-label">Visible columns <span>{visibleColumnCount}/{COLUMN_OPTIONS.length}</span></div>
+          <label className="column-picker-option column-picker-select-all">
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              checked={visibleColumnCount === COLUMN_OPTIONS.length}
+              onChange={(event) => event.target.checked ? selectAllColumns() : deselectAllColumns()}
+            />
+            <span>Select all columns</span>
+          </label>
+          <button className="column-picker-deselect" type="button" onClick={deselectAllColumns}>Deselect all</button>
+          <div className="column-picker-divider" />
+          {COLUMN_OPTIONS.map(([key, label]) => (
+            <label className="column-picker-option" key={key}>
+              <input type="checkbox" checked={visibleColumns[key]} onChange={() => toggleColumn(key)} />
+              <span>{label}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StatusValueFilter({ statusFilter, setStatusFilter, isOpen, setIsOpen }) {
+  return (
+    <div className="status-filter-control status-value-filter-control">
+      <button
+        className={`status-filter-icon-button status-filter-header-button ${isOpen ? 'active' : ''}`}
+        type="button"
+        aria-haspopup="true"
+        aria-expanded={isOpen}
+        aria-label={`Filter statuses; current filter: ${statusFilter}`}
+        title="Filter by status"
+        onClick={() => setIsOpen((open) => !open)}
+      >
+        <Filter size={13} aria-hidden="true" />
+      </button>
+      {isOpen && (
+        <div className="column-picker-menu status-filter-menu" role="group" aria-label="Filter by status">
+          <div className="filter-menu-section-label">Filter by status</div>
+          {STATUS_OPTIONS.map(([value, label]) => (
+            <button
+              className={`status-filter-option ${statusFilter === value ? 'selected' : ''}`}
+              type="button"
+              key={value}
+              aria-pressed={statusFilter === value}
+              onClick={() => setStatusFilter(value)}
+            >
+              <span>{label}</span>
+              {statusFilter === value && <CheckCircle2 size={13} aria-hidden="true" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function EnvironmentTable({ repositories, totalRepositories, foundationVersion, foundationPipeline, releaseName, searchQuery = '', onActionClick }) {
   const [statusFilter, setStatusFilter] = useState('All Statuses');
+  const [visibleColumns, setVisibleColumns] = useState(() => Object.fromEntries(COLUMN_OPTIONS.map(([key]) => [key, true])));
+  const [renderedColumns, setRenderedColumns] = useState(() => Object.fromEntries(COLUMN_OPTIONS.map(([key]) => [key, true])));
+  const [columnAnimations, setColumnAnimations] = useState({});
+  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+  const [isStatusMenuOpen, setIsStatusMenuOpen] = useState(false);
+  const [pipelineInfo, setPipelineInfo] = useState(null);
+  const [isComponentScanning, setIsComponentScanning] = useState(false);
+  const [componentScanCycle, setComponentScanCycle] = useState(0);
+  const columnAnimationTimers = useRef({});
+  const componentScanTimer = useRef(null);
+  const selectAllRef = useRef(null);
+
+  const visibleColumnCount = COLUMN_OPTIONS.reduce((count, [key]) => count + Number(visibleColumns[key]), 0);
+  const renderedColumnCount = COLUMN_OPTIONS.reduce((count, [key]) => count + Number(renderedColumns[key]), 0);
+  const hasLaterVersionColumn = renderedColumns.nonProdVersion || renderedColumns.hfVersion;
+
+  useEffect(() => () => {
+    Object.values(columnAnimationTimers.current).forEach(window.clearTimeout);
+    window.clearTimeout(componentScanTimer.current);
+  }, []);
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = visibleColumnCount > 0 && visibleColumnCount < COLUMN_OPTIONS.length;
+    }
+  }, [visibleColumnCount]);
 
   const filteredRepos = useMemo(() => {
     if (!repositories) return [];
     return repositories.filter((repo) => {
-      const matchesEnv = envFilter === 'All Environments' || repo.environment === envFilter;
       const matchesStatus = statusFilter === 'All Statuses' || repo.status === statusFilter;
       const matchesSearch = 
         repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -30,9 +154,68 @@ export default function EnvironmentTable({ repositories, totalRepositories, foun
         repo.environment.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.status.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return matchesEnv && matchesStatus && matchesSearch;
+      return matchesStatus && matchesSearch;
     });
-  }, [repositories, envFilter, statusFilter, searchQuery]);
+  }, [repositories, statusFilter, searchQuery]);
+
+  const applyColumnSelection = (nextColumns) => {
+    const changedColumns = Object.entries(nextColumns).filter(([key, shouldShow]) => shouldShow !== visibleColumns[key]);
+    if (changedColumns.length === 0) return;
+
+    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    setIsComponentScanning(true);
+    setComponentScanCycle((cycle) => cycle + 1);
+    window.clearTimeout(componentScanTimer.current);
+    componentScanTimer.current = window.setTimeout(() => setIsComponentScanning(false), prefersReducedMotion ? 1 : COMPONENT_SCAN_DURATION);
+
+    changedColumns.forEach(([key, shouldShow]) => {
+      window.clearTimeout(columnAnimationTimers.current[key]);
+      setColumnAnimations((current) => ({ ...current, [key]: shouldShow ? 'entering' : 'exiting' }));
+
+      const columnIndex = COLUMN_OPTIONS.findIndex(([columnKey]) => columnKey === key);
+      const staggerIndex = shouldShow ? columnIndex : COLUMN_OPTIONS.length - columnIndex - 1;
+      const animationDelay = prefersReducedMotion ? 0 : staggerIndex * COLUMN_STAGGER_DELAY;
+      const animationDuration = prefersReducedMotion ? 1 : (shouldShow ? COLUMN_ENTER_DURATION : COLUMN_EXIT_DURATION);
+
+      if (shouldShow) {
+        setRenderedColumns((current) => ({ ...current, [key]: true }));
+      }
+
+      columnAnimationTimers.current[key] = window.setTimeout(() => {
+        if (!shouldShow) setRenderedColumns((current) => ({ ...current, [key]: false }));
+        setColumnAnimations((current) => {
+          const next = { ...current };
+          delete next[key];
+          return next;
+        });
+        delete columnAnimationTimers.current[key];
+      }, animationDuration + animationDelay);
+    });
+    setVisibleColumns(nextColumns);
+  };
+
+  const toggleColumn = (key) => {
+    applyColumnSelection({ ...visibleColumns, [key]: !visibleColumns[key] });
+  };
+
+  const selectAllColumns = () => {
+    applyColumnSelection(Object.fromEntries(COLUMN_OPTIONS.map(([key]) => [key, true])));
+  };
+
+  const deselectAllColumns = () => {
+    applyColumnSelection(Object.fromEntries(COLUMN_OPTIONS.map(([key]) => [key, false])));
+  };
+
+  const columnClass = (key, baseClass = '') => [
+    baseClass,
+    `managed-column-${key}`,
+    columnAnimations[key] ? `column-${columnAnimations[key]}` : ''
+  ].filter(Boolean).join(' ');
+
+  const gutterClass = (baseClass = 'version-column-gutter') => [
+    baseClass,
+    'column-gutter-transition'
+  ].filter(Boolean).join(' ');
 
   const renderStatusPill = (status) => {
     switch (status) {
@@ -79,6 +262,18 @@ export default function EnvironmentTable({ repositories, totalRepositories, foun
     return '#0f172a';
   };
 
+  const renderFoundationInfoButton = (environment) => (
+    <button
+      type="button"
+      className="version-info-button"
+      aria-label={`Foundation pipeline details for ${environment}`}
+      title={`Foundation pipeline details for ${environment}`}
+      onClick={() => setPipelineInfo(environment)}
+    >
+      <Info size={12} />
+    </button>
+  );
+
   return (
     <div className="table-card">
       {/* Table Header Bar with Filters */}
@@ -99,67 +294,55 @@ export default function EnvironmentTable({ repositories, totalRepositories, foun
             <Download size={14} />
             <span>Export Manifest</span>
           </button>
-          <button
-            className="table-ai-btn"
-            type="button"
-            onClick={onAIActivate}
-            title="Open the AI Assistant for release analysis"
-          >
-            <Sparkles size={14} />
-            <span>AI Assistant</span>
-          </button>
+          <ColumnVisibilityFilter
+            visibleColumns={visibleColumns}
+            visibleColumnCount={visibleColumnCount}
+            isOpen={isColumnMenuOpen}
+            setIsOpen={setIsColumnMenuOpen}
+            selectAllRef={selectAllRef}
+            selectAllColumns={selectAllColumns}
+            deselectAllColumns={deselectAllColumns}
+            toggleColumn={toggleColumn}
+          />
         </div>
 
-        <div className="table-filter-group">
-          {/* Environments Filter */}
-          <select 
-            className="custom-select"
-            value={envFilter}
-            onChange={(e) => setEnvFilter(e.target.value)}
-            aria-label="Filter by Environment"
-          >
-            <option value="All Environments">All Environments</option>
-            <option value="PROD">PROD</option>
-            <option value="UAT">UAT</option>
-            <option value="STAGING">STAGING</option>
-          </select>
-
-          {/* Statuses Filter */}
-          <select 
-            className="custom-select"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            aria-label="Filter by Status"
-          >
-            <option value="All Statuses">All Statuses</option>
-            <option value="Review">Mismatch review</option>
-            <option value="Match">Versions match</option>
-            <option value="Investigate">Critical mismatch</option>
-            <option value="On Track">Deployment in progress</option>
-          </select>
-
-        </div>
       </div>
 
       {/* Table Body with internal scroll */}
-      <div className="table-responsive">
+      <div className={`table-responsive ${isComponentScanning ? 'is-component-scanning' : ''}`}>
         <table className="data-table">
           <thead>
             <tr>
-              <th className="sticky-repository" style={{ width: '170px' }}>Repository</th>
-              <th className="foundation-column foundation-column-header" style={{ width: '112px' }}>
+              {renderedColumns.repository && <th className={columnClass('repository', 'sticky-repository')} style={{ width: '170px' }}>Repository</th>}
+              {renderedColumns.prodVersion && <th className={columnClass('prodVersion', 'foundation-column foundation-column-header')} style={{ width: '112px' }}>
                 <div className="foundation-header-content">
                   <span className="foundation-version-label">Foundation {foundationVersion}</span>
-                  <span>Prod Version</span>
+                  <span className="version-heading-with-info">Prod Version {renderFoundationInfoButton('Prod')}</span>
                 </div>
-              </th>
-              <th style={{ width: '96px' }}>Non-Prod Version</th>
-              <th style={{ width: '86px' }}>HF Version</th>
-              <th className="column-secondary" style={{ width: '80px' }}>Jenkins Build</th>
-              <th className="column-secondary" style={{ width: '120px' }}>Last Deployed</th>
-              <th style={{ width: '90px' }}>Change Order</th>
-              <th style={{ width: '140px' }}>Status</th>
-              <th className="sticky-actions" style={{ width: '48px', textAlign: 'center' }}>Actions</th>
+              </th>}
+              {renderedColumns.prodVersion && hasLaterVersionColumn && <th className={gutterClass()} aria-hidden="true" />}
+              {renderedColumns.nonProdVersion && <th className={columnClass('nonProdVersion', 'non-prod-foundation-column non-prod-foundation-column-header')} style={{ width: '116px' }}>
+                <div className="foundation-header-content">
+                  <span className="foundation-version-label foundation-version-label--nonprod">Foundation {foundationVersion}</span>
+                  <span className="version-heading-with-info">Non-Prod Version {renderFoundationInfoButton('Non-Prod')}</span>
+                </div>
+              </th>}
+              {renderedColumns.nonProdVersion && renderedColumns.hfVersion && <th className={gutterClass()} aria-hidden="true" />}
+              {renderedColumns.hfVersion && <th className={columnClass('hfVersion', 'hf-foundation-column hf-foundation-column-header')} style={{ width: '110px' }}>
+                <div className="foundation-header-content">
+                  <span className="foundation-version-label foundation-version-label--hf">Foundation {foundationVersion}</span>
+                  <span className="version-heading-with-info">HF Version {renderFoundationInfoButton('HF')}</span>
+                </div>
+              </th>}
+              {renderedColumns.lastDeployed && <th className={columnClass('lastDeployed', 'column-secondary')} style={{ width: '120px' }}>Last Deployed</th>}
+              {renderedColumns.changeOrder && <th className={columnClass('changeOrder')} style={{ width: '90px' }}>Change Order</th>}
+              {renderedColumns.status && <th className={columnClass('status')} style={{ width: '140px' }}>
+                <div className="status-column-heading">
+                  <span>Status</span>
+                  <StatusValueFilter statusFilter={statusFilter} setStatusFilter={setStatusFilter} isOpen={isStatusMenuOpen} setIsOpen={setIsStatusMenuOpen} />
+                </div>
+              </th>}
+              {renderedColumns.actions && <th className={columnClass('actions', 'sticky-actions')} style={{ width: '48px', textAlign: 'center' }}>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -167,73 +350,59 @@ export default function EnvironmentTable({ repositories, totalRepositories, foun
               filteredRepos.map((repo) => (
                 <tr key={repo.id}>
                   {/* Repository */}
-                  <td className="sticky-repository">
+                  {renderedColumns.repository && <td className={columnClass('repository', 'sticky-repository')} style={{ width: '170px' }}>
                     <div className="repo-name-cell">
                       <div className="repo-icon-wrap">
                         <FolderGit2 size={12} />
                       </div>
                       <span style={{ fontSize: '11.5px' }}>{repo.name}</span>
                     </div>
-                  </td>
+                  </td>}
 
                   {/* Prod Version */}
-                  <td className="foundation-column">
+                  {renderedColumns.prodVersion && <td className={columnClass('prodVersion', 'foundation-column')} style={{ width: '112px' }}>
                     <span className="version-text">{repo.prodVersion}</span>
-                  </td>
-
-                  {/* Hotfix Version */}
-                  <td>
-                    <span className="version-text hf-version-text">{repo.hfVersion}</span>
-                  </td>
+                  </td>}
+                  {renderedColumns.prodVersion && hasLaterVersionColumn && <td className={gutterClass()} aria-hidden="true" />}
 
                   {/* Non-Prod Version */}
-                  <td>
-                    <span 
-                      className="version-text" 
-                      style={{ 
+                  {renderedColumns.nonProdVersion && <td className={columnClass('nonProdVersion', 'non-prod-foundation-column')} style={{ width: '116px' }}>
+                    <span className="version-text hf-version-text">{repo.nonProdVersion}</span>
+                  </td>}
+                  {renderedColumns.nonProdVersion && renderedColumns.hfVersion && <td className={gutterClass()} aria-hidden="true" />}
+
+                  {/* Hotfix Version */}
+                  {renderedColumns.hfVersion && <td className={columnClass('hfVersion', 'hf-foundation-column')} style={{ width: '110px' }}>
+                    <span
+                      className="version-text"
+                      style={{
                         color: getNonProdColor(repo.versionStatus),
                         fontWeight: repo.versionStatus !== 'match' ? 600 : 400
                       }}
                     >
-                      {repo.nonProdVersion}
+                      {repo.hfVersion}
                     </span>
-                  </td>
-
-                  {/* Jenkins Build */}
-                  <td className="column-secondary">
-                    <a 
-                      href={repo.jenkinsUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="build-link"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        alert(`Opening Jenkins build ${repo.jenkinsBuild} logs for ${repo.name}`);
-                      }}
-                    >
-                      {repo.jenkinsBuild}
-                    </a>
-                  </td>
+                  </td>}
 
                   {/* Last Deployed */}
-                  <td className="column-secondary" style={{ color: '#475569', fontSize: '11px' }}>
+                  {renderedColumns.lastDeployed && <td className={columnClass('lastDeployed', 'column-secondary')} style={{ color: '#475569', fontSize: '11px', width: '120px' }}>
                     {repo.lastDeployed}
-                  </td>
+                  </td>}
 
                   {/* Change Order */}
-                  <td>
+                  {renderedColumns.changeOrder && <td className={columnClass('changeOrder')} style={{ width: '90px' }}>
                     <span style={{ fontWeight: 500, color: '#334155', fontSize: '11px' }}>
                       {repo.changeOrder}
                     </span>
-                  </td>
+                  </td>}
 
                   {/* Status */}
-                  <td>
+                  {renderedColumns.status && <td className={columnClass('status')} style={{ width: '140px' }}>
                     {renderStatusPill(repo.status)}
-                  </td>
+                  </td>}
 
                   {/* Actions */}
-                  <td className="sticky-actions" style={{ textAlign: 'center' }}>
+                  {renderedColumns.actions && <td className={columnClass('actions', 'sticky-actions')} style={{ textAlign: 'center', width: '48px' }}>
                     <button 
                       className="action-menu-btn" 
                       onClick={() => onActionClick && onActionClick(repo)}
@@ -242,19 +411,58 @@ export default function EnvironmentTable({ repositories, totalRepositories, foun
                     >
                       <MoreHorizontal size={14} />
                     </button>
-                  </td>
+                  </td>}
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="9" style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
-                  No repositories found matching the filter criteria.
+                <td colSpan={Math.max(1, renderedColumnCount + Number(renderedColumns.prodVersion && hasLaterVersionColumn) + Number(renderedColumns.nonProdVersion && renderedColumns.hfVersion))} style={{ textAlign: 'center', padding: '24px', color: '#94a3b8' }}>
+                  {visibleColumnCount ? 'No repositories found matching the filter criteria.' : 'Select at least one column to display.'}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+        {isComponentScanning && <div className="component-scan-overlay" key={componentScanCycle} aria-hidden="true" />}
       </div>
+      {pipelineInfo && createPortal(
+        <div className="modal-overlay" onMouseDown={(event) => event.target === event.currentTarget && setPipelineInfo(null)}>
+          <section className="modal-dialog pipeline-info-dialog" role="dialog" aria-modal="true" aria-labelledby="pipeline-info-title">
+            <header className="modal-header">
+              <div>
+                <div className="modal-title" id="pipeline-info-title">Foundation pipeline details</div>
+                <div className="pipeline-info-subtitle">{pipelineInfo} column · Release {releaseName}</div>
+              </div>
+              <button className="modal-close-btn" onClick={() => setPipelineInfo(null)} aria-label="Close pipeline details"><X size={18} /></button>
+            </header>
+            <div className="modal-body">
+              <div className="pipeline-run-details">
+                <div><span>Final foundation version</span><strong>{foundationPipeline?.finalVersion || foundationVersion}</strong></div>
+                <div><span>Pipeline run by</span><strong>{foundationPipeline?.runBy || 'Not recorded'}</strong></div>
+                <div><span>Timestamp</span><strong>{foundationPipeline?.runAt || 'Not recorded'}</strong></div>
+              </div>
+              <h3 className="pipeline-builds-heading">Jenkins build numbers</h3>
+              <div className="pipeline-build-list">
+                {repositories.map((repo) => (
+                  <div className="pipeline-build-row" key={repo.id}>
+                    <span>{repo.name}</span>
+                    <a
+                      href={repo.jenkinsUrl}
+                      className="build-link"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        alert(`Opening Jenkins build ${repo.jenkinsBuild} logs for ${repo.name}`);
+                      }}
+                    >{repo.jenkinsBuild}</a>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <footer className="modal-footer"><button className="btn-secondary" onClick={() => setPipelineInfo(null)}>Close</button></footer>
+          </section>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

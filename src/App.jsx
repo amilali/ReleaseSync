@@ -12,6 +12,7 @@ import ChecklistModal from './components/ChecklistModal';
 import ActionModal from './components/ActionModal';
 import EditFreezeModal from './components/EditFreezeModal';
 import AIAssistant from './components/AIAssistant';
+import FinalizeVersionsModal from './components/FinalizeVersionsModal';
 
 export default function App() {
   const [showPreloader, setShowPreloader] = useState(true);
@@ -36,6 +37,7 @@ export default function App() {
   const [isChecklistOpen, setIsChecklistOpen] = useState(false);
   const [selectedRepoForAction, setSelectedRepoForAction] = useState(null);
   const [isEditFreezeOpen, setIsEditFreezeOpen] = useState(false);
+  const [isFinalizeVersionsOpen, setIsFinalizeVersionsOpen] = useState(false);
 
   // Reload the bundled sample data and refresh the displayed timestamp.
   const handleRefresh = () => {
@@ -58,6 +60,21 @@ export default function App() {
     setData((prev) => ({
       ...prev,
       codeFreezeDetails: newFreeze
+    }));
+  };
+
+  const handleFinalizeVersions = (versions) => {
+    setData((prev) => ({
+      ...prev,
+      repositories: prev.repositories.map((repo) => {
+        const finalized = versions.find((version) => version.id === repo.id);
+        if (!finalized) return repo;
+        return {
+          ...repo,
+          ...(!repo.nonProdVersionFinalized ? { nonProdVersion: finalized.nonProdVersion, nonProdVersionFinalized: true } : {}),
+          ...(!repo.hfVersionFinalized ? { hfVersion: finalized.hfVersion, hfVersionFinalized: true } : {})
+        };
+      })
     }));
   };
 
@@ -102,6 +119,8 @@ export default function App() {
           currentRelease={selectedRelease}
           availableReleases={data.system.availableReleases}
           onSelectRelease={setSelectedRelease}
+          onFinalizeVersions={() => setIsFinalizeVersionsOpen(true)}
+          canFinalizeVersions={selectedRelease === data.system.currentRelease}
           notifications={notifications}
           user={data.system.currentUser}
           onNotificationClick={(repo) => setSelectedRepoForAction(repo)}
@@ -161,9 +180,9 @@ export default function App() {
                 repositories={data.repositories}
                 totalRepositories={data.metrics.totalRepositories.value}
                 foundationVersion={data.system.foundationVersion}
+                foundationPipeline={data.system.foundationPipeline}
                 releaseName={selectedRelease}
                 onActionClick={(repo) => setSelectedRepoForAction(repo)}
-                onAIActivate={() => setActiveNav('AI Assistant')}
               />
             </>
           )}
@@ -206,6 +225,14 @@ export default function App() {
         onClose={() => setIsEditFreezeOpen(false)}
         freezeDetails={data.codeFreezeDetails}
         onSave={handleUpdateFreeze}
+      />
+
+      <FinalizeVersionsModal
+        isOpen={isFinalizeVersionsOpen}
+        onClose={() => setIsFinalizeVersionsOpen(false)}
+        repositories={data.repositories}
+        releaseName={selectedRelease}
+        onFinalize={handleFinalizeVersions}
       />
     </div>
   );

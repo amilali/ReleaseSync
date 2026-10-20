@@ -8,7 +8,7 @@ import {
   ShieldCheck, 
   Clock, 
   BarChart3, 
-  Bot 
+  Sparkles
 } from 'lucide-react';
 
 export default function Sidebar({ activeNav = 'Dashboard', onNavClick }) {
@@ -20,7 +20,6 @@ export default function Sidebar({ activeNav = 'Dashboard', onNavClick }) {
     { name: 'Deployments', icon: ShieldCheck },
     { name: 'Code Freeze', icon: Clock },
     { name: 'Reports', icon: BarChart3 },
-    { name: 'AI Assistant', icon: Bot },
   ];
 
   return (
@@ -60,6 +59,15 @@ export default function Sidebar({ activeNav = 'Dashboard', onNavClick }) {
 
       {/* Footer branding */}
       <div className="sidebar-footer">
+        <button
+          className="table-ai-btn ask-ai-btn sidebar-ask-ai-btn"
+          type="button"
+          onClick={() => onNavClick && onNavClick('AI Assistant')}
+          title="Open the AI Assistant"
+        >
+          <Sparkles size={14} />
+          <span>Ask AI</span>
+        </button>
         <span className="tagline">You're in good hands.®</span>
       </div>
     </aside>
