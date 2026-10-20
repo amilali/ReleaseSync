@@ -1,9 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowUpRight,
   Bot,
   CheckCircle2,
   CircleAlert,
+  Maximize2,
+  X,
   GitCompareArrows,
   Send,
   ShieldCheck,
@@ -67,9 +69,16 @@ function analyzePrompt(prompt, repositories, metrics, readiness, foundationVersi
   };
 }
 
-export default function AIAssistant({ repositories, metrics, readiness, foundationVersion, releaseName, initialPrompt = '', onInitialPromptConsumed, onReview }) {
-  const [input, setInput] = useState('');
-  const [messages, setMessages] = useState([]);
+export default function AIAssistant({ repositories, metrics, readiness, foundationVersion, releaseName, initialPrompt = '', onInitialPromptConsumed, onReview, input, setInput, messages, setMessages, presentation = 'page', onFullScreen, onClose }) {
+  const [thinkingId, setThinkingId] = useState(null);
+  const thinkingTimer = useRef(null);
+  const messageListRef = useRef(null);
+
+  useEffect(() => {
+    const list = messageListRef.current;
+    if (!list || messages.length === 0) return;
+    list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+  }, [messages]);
 
   useEffect(() => {
     if (!initialPrompt) return;
@@ -80,16 +89,43 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
     onInitialPromptConsumed?.();
   }, [initialPrompt, repositories, metrics, readiness, foundationVersion, onInitialPromptConsumed]);
 
+  const enqueueQuestion = (question, allowAfterClear = false) => {
+    if (!question || (!allowAfterClear && (thinkingId !== null || messages.some((message) => message.thinking)))) return;
+    const id = `chat-${Date.now()}`;
+    const answer = analyzePrompt(question, repositories, metrics, readiness, foundationVersion);
+    setMessages((current) => [...current, { id, question, answer: null, thinking: true }]);
+    setInput('');
+    setThinkingId(id);
+    thinkingTimer.current = window.setTimeout(() => {
+      setMessages((current) => current.map((message) => message.id === id
+        ? { ...message, answer, thinking: false }
+        : message));
+      setThinkingId(null);
+      thinkingTimer.current = null;
+    }, 1050);
+  };
+
   const ask = (prompt) => {
     const question = prompt.trim();
     if (!question) return;
-    const answer = analyzePrompt(question, repositories, metrics, readiness, foundationVersion);
-    setMessages((current) => [...current, { question, answer }]);
-    setInput('');
+    const clearCommand = question.match(/^\/clear(?:\s+([\s\S]*))?$/i);
+    if (clearCommand) {
+      window.clearTimeout(thinkingTimer.current);
+      setThinkingId(null);
+      setMessages([]);
+      setInput('');
+      const followUp = clearCommand[1]?.trim();
+      if (followUp) enqueueQuestion(followUp, true);
+      return;
+    }
+    enqueueQuestion(question);
   };
 
+  const hasClearCommand = /^\/clear(?:\s|$)/i.test(input);
+  const isThinking = thinkingId !== null || messages.some((message) => message.thinking);
+
   return (
-    <section className="ai-workspace" aria-label="AI release assistant">
+    <section className={`ai-workspace ${presentation === 'popup' ? 'ai-workspace--popup' : ''} ${presentation === 'sidebar' ? 'ai-workspace--sidebar' : ''}`} aria-label="AI release assistant">
       <div className="ai-workspace-heading">
         <div className="ai-title-group">
           <div className="ai-title-icon"><Sparkles size={19} /></div>
@@ -99,7 +135,13 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
             <p>Ask a release question or choose an analysis to explore the current dashboard data.</p>
           </div>
         </div>
-        <div className="ai-data-status"><span />Using current dashboard data</div>
+        <div className="ai-heading-actions">
+          <div className="ai-data-status"><span />Using current dashboard data</div>
+          {presentation === 'popup' && <div className="ai-popup-controls">
+            <button type="button" aria-label="Open full-screen AI assistant" title="Open full screen" onClick={onFullScreen}><Maximize2 size={15} /></button>
+            <button type="button" aria-label="Close AI assistant" title="Close" onClick={onClose}><X size={16} /></button>
+          </div>}
+        </div>
       </div>
 
       <div className="ai-context-strip" aria-label="Current release context">
@@ -126,36 +168,65 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
             </div>
           </div>
         ) : (
-          <div className="ai-message-list" aria-live="polite">
-            {messages.map(({ question, answer }, index) => (
-              <article className="ai-exchange" key={`${index}-${question}`}>
+          <div className="ai-message-list" aria-live="polite" ref={messageListRef}>
+            {messages.map(({ id, question, answer, thinking }, index) => (
+              <article className={`ai-exchange ${index === messages.length - 1 ? 'ai-exchange--drop-in' : ''}`} key={id || `${index}-${question}`}>
                 <div className="ai-user-question"><span>You</span><p>{question}</p></div>
-                <div className="ai-answer">
-                  <div className="ai-answer-mark"><Sparkles size={14} /></div>
-                  <div className="ai-answer-body">
-                    <h3>{answer.title}</h3>
-                    <p>{answer.summary}</p>
-                    <ul>{answer.points.map((point) => <li key={point}>{point}</li>)}</ul>
-                    {answer.repo && (
-                      <button className="ai-review-link" type="button" onClick={() => onReview?.(answer.repo)}>
-                        Review {answer.repo.name}<ArrowUpRight size={14} />
-                      </button>
-                    )}
+                {thinking || !answer ? (
+                  <div className="ai-answer ai-answer--thinking" role="status" aria-label="Thinking through release data">
+                    <div className="ai-answer-mark"><Sparkles size={14} /></div>
+                    <div className="ai-thinking-content">
+                      <p className="ai-thinking-text">Thinking through release data<span className="ai-thinking-dots" aria-hidden="true"><i /><i /><i /></span></p>
+                      <div className="ai-answer-skeleton" aria-hidden="true">
+                        <span className="ai-skeleton-line ai-skeleton-title" />
+                        <span className="ai-skeleton-line ai-skeleton-long" />
+                        <span className="ai-skeleton-line ai-skeleton-medium" />
+                        <span className="ai-skeleton-line ai-skeleton-short" />
+                        <div className="ai-skeleton-points">
+                          <span><i className="ai-skeleton-dot" /><i className="ai-skeleton-line" /></span>
+                          <span><i className="ai-skeleton-dot" /><i className="ai-skeleton-line" /></span>
+                          <span><i className="ai-skeleton-dot" /><i className="ai-skeleton-line" /></span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="ai-answer ai-answer--arrive">
+                    <div className="ai-answer-mark"><Sparkles size={14} /></div>
+                    <div className="ai-answer-body">
+                      <h3>{answer.title}</h3>
+                      <p>{answer.summary}</p>
+                      <ul>{answer.points.map((point) => <li key={point}>{point}</li>)}</ul>
+                      {answer.repo && (
+                        <button className="ai-review-link" type="button" onClick={() => onReview?.(answer.repo)}>
+                          Review {answer.repo.name}<ArrowUpRight size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </article>
             ))}
           </div>
         )}
 
         <form className="ai-composer" onSubmit={(event) => { event.preventDefault(); ask(input); }}>
-          <input
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            placeholder="Ask about readiness, version drift, or approvals…"
-            aria-label="Ask the release analyst"
-          />
-          <button type="submit" disabled={!input.trim()} aria-label="Send question"><Send size={16} /></button>
+          <span className="ai-input-shell">
+            {hasClearCommand && (
+              <span className="ai-command-visual" aria-hidden="true">
+                <span className="ai-command-tag">/clear</span>
+                <span className="ai-command-remainder">{input.slice(6)}</span>
+              </span>
+            )}
+            <input
+              className={hasClearCommand ? 'ai-command-input' : ''}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Ask about readiness, version drift, or approvals…"
+              aria-label="Ask the release analyst"
+            />
+          </span>
+          <button type="submit" disabled={!input.trim() || (isThinking && !hasClearCommand)} aria-label="Send question"><Send size={16} /></button>
         </form>
         <p className="ai-preview-note"><CheckCircle2 size={12} /> Preview analysis uses bundled dashboard data. Connect an approved AI service to enable model-generated responses.</p>
       </div>

@@ -277,10 +277,10 @@ export default function Navbar({
         {/* User Profile Info */}
         <div className="user-profile" onClick={onUserClick} title="User Account Settings">
           <div className="avatar-circle">
-            {user?.initials || 'JD'}
+            {user?.initials || 'AA'}
           </div>
           <div className="user-details">
-            <span className="user-name">{user?.name || 'John Doe'}</span>
+            <span className="user-name">{user?.name || 'Amil Ali'}</span>
             <span className="user-role">{user?.role || 'Release Manager'}</span>
           </div>
         </div>

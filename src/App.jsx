@@ -21,6 +21,9 @@ export default function App() {
   const [activeNav, setActiveNav] = useState('Dashboard');
   const [searchQuery, setSearchQuery] = useState('');
   const [aiInitialPrompt, setAiInitialPrompt] = useState('');
+  const [isSidebarAiOpen, setIsSidebarAiOpen] = useState(false);
+  const [aiMessages, setAiMessages] = useState([]);
+  const [aiInput, setAiInput] = useState('');
   const [selectedRelease, setSelectedRelease] = useState(data.system.currentRelease);
   const [lastUpdated, setLastUpdated] = useState(data.system.lastUpdated);
 
@@ -32,6 +35,15 @@ export default function App() {
       window.clearTimeout(removeTimer);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isSidebarAiOpen) return undefined;
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setIsSidebarAiOpen(false);
+    };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [isSidebarAiOpen]);
 
   // Modals state
   const [isChecklistOpen, setIsChecklistOpen] = useState(false);
@@ -100,6 +112,28 @@ export default function App() {
       <Sidebar
         activeNav={activeNav}
         onNavClick={(navName) => setActiveNav(navName)}
+        onAskAI={() => setIsSidebarAiOpen(true)}
+        aiMode={isSidebarAiOpen}
+        onBack={() => setIsSidebarAiOpen(false)}
+        onFullScreen={() => {
+          setIsSidebarAiOpen(false);
+          setActiveNav('AI Assistant');
+        }}
+        assistant={isSidebarAiOpen && <AIAssistant
+          repositories={data.repositories}
+          metrics={data.metrics}
+          readiness={data.releaseReadiness}
+          foundationVersion={data.system.foundationVersion}
+          releaseName={selectedRelease}
+          initialPrompt={aiInitialPrompt}
+          onInitialPromptConsumed={() => setAiInitialPrompt('')}
+          onReview={(repo) => setSelectedRepoForAction(repo)}
+          input={aiInput}
+          setInput={setAiInput}
+          messages={aiMessages}
+          setMessages={setAiMessages}
+          presentation="sidebar"
+        />}
       />
 
       {/* 2. Main Content Wrapper */}
@@ -110,7 +144,7 @@ export default function App() {
           repositories={data.repositories}
           onAskAI={(prompt) => {
             setAiInitialPrompt(prompt);
-            setActiveNav('AI Assistant');
+            setIsSidebarAiOpen(true);
           }}
           onSearchChange={(query) => {
             setSearchQuery(query);
@@ -124,7 +158,7 @@ export default function App() {
           notifications={notifications}
           user={data.system.currentUser}
           onNotificationClick={(repo) => setSelectedRepoForAction(repo)}
-          onUserClick={() => alert(`Logged in as John Doe (Release Manager - Allstate Enterprise Engineering)`)}
+          onUserClick={() => alert(`Logged in as Amil Ali (Release Manager - Allstate Enterprise Engineering)`)}
         />
 
         {/* Dashboard Content Area */}
@@ -152,6 +186,10 @@ export default function App() {
               initialPrompt={aiInitialPrompt}
               onInitialPromptConsumed={() => setAiInitialPrompt('')}
               onReview={(repo) => setSelectedRepoForAction(repo)}
+              input={aiInput}
+              setInput={setAiInput}
+              messages={aiMessages}
+              setMessages={setAiMessages}
             />
           ) : activeNav === 'Reports' ? (
             <section className="reports-view" aria-label="Release Reports">

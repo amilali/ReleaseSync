@@ -7,7 +7,7 @@
     "foundationVersion": "1.315.654",
     "foundationPipeline": {
       "finalVersion": "1.315.654",
-      "runBy": "John Doe",
+      "runBy": "Amil Ali",
       "runAt": "Oct 15, 2024 10:32 AM"
     },
     "currentRelease": "Release 2024.10",
@@ -19,9 +19,9 @@
     ],
     "lastUpdated": "Oct 15, 2024 10:32 AM",
     "currentUser": {
-      "name": "John Doe",
+      "name": "Amil Ali",
       "role": "Release Manager",
-      "initials": "JD",
+      "initials": "AA",
       "unreadNotifications": 3
     }
   },
