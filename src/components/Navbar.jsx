@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Search, Calendar, Bell, ChevronDown, ArrowUpRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { Search, Calendar, Bell, ChevronDown, ArrowUpRight, Sparkles } from 'lucide-react';
 
 export default function Navbar({ 
   searchQuery, 
@@ -236,11 +236,6 @@ export default function Navbar({
             </div>
           )}
         </div>
-
-        <button className="finalize-release-nav-btn" type="button" onClick={onFinalizeVersions} disabled={!canFinalizeVersions} title={canFinalizeVersions ? `Finalize versions for ${currentRelease}` : 'Version details are not loaded for this release'}>
-          <CheckCircle2 size={14} />
-          <span>Finalize versions</span>
-        </button>
 
         {/* Notification Bell */}
         <div className="notifications-wrap">
