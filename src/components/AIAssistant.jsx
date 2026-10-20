@@ -5,12 +5,21 @@ import {
   CheckCircle2,
   CircleAlert,
   Maximize2,
+  RotateCcw,
   X,
   GitCompareArrows,
   Send,
   ShieldCheck,
   Sparkles,
 } from 'lucide-react';
+
+const slashCommands = [
+  {
+    command: '/clear',
+    label: 'Clear chat',
+    icon: RotateCcw,
+  },
+];
 
 const suggestedPrompts = [
   { icon: CircleAlert, label: 'Which repositories need attention?', kind: 'attention' },
@@ -71,8 +80,12 @@ function analyzePrompt(prompt, repositories, metrics, readiness, foundationVersi
 
 export default function AIAssistant({ repositories, metrics, readiness, foundationVersion, releaseName, initialPrompt = '', onInitialPromptConsumed, onReview, input, setInput, messages, setMessages, presentation = 'page', onFullScreen, onClose }) {
   const [thinkingId, setThinkingId] = useState(null);
+  const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
+  const [isSlashDismissed, setIsSlashDismissed] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const thinkingTimer = useRef(null);
   const messageListRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const list = messageListRef.current;
@@ -121,8 +134,56 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
     enqueueQuestion(question);
   };
 
+  const handleInsertSlash = (command) => {
+    setInput(`${command} `);
+    setIsSlashDismissed(true);
+    inputRef.current?.focus();
+  };
+
+  const handleExecuteSlash = (command) => {
+    setIsSlashDismissed(true);
+    ask(command);
+  };
+
   const hasClearCommand = /^\/clear(?:\s|$)/i.test(input);
   const isThinking = thinkingId !== null || messages.some((message) => message.thinking);
+  const trimmedInput = input.trim();
+  const isSlashActive = input.startsWith('/') && !/^\/clear\s+/i.test(input) && !isSlashDismissed && isInputFocused;
+  const matchingSlashCommands = isSlashActive
+    ? slashCommands.filter((cmd) => cmd.command.toLowerCase().startsWith(trimmedInput.toLowerCase()))
+    : [];
+  const showSlashSuggestions = isSlashActive;
+
+  const handleInputKeyDown = (event) => {
+    if (!showSlashSuggestions) return;
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      if (matchingSlashCommands.length > 0) {
+        setSelectedSlashIndex((prev) => (prev + 1) % matchingSlashCommands.length);
+      }
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      if (matchingSlashCommands.length > 0) {
+        setSelectedSlashIndex((prev) => (prev - 1 + matchingSlashCommands.length) % matchingSlashCommands.length);
+      }
+    } else if (event.key === 'Tab') {
+      if (matchingSlashCommands.length > 0) {
+        event.preventDefault();
+        const chosen = matchingSlashCommands[selectedSlashIndex] || matchingSlashCommands[0];
+        handleInsertSlash(chosen.command);
+      }
+    } else if (event.key === 'Enter') {
+      if (matchingSlashCommands.length > 0 && !input.includes(' ')) {
+        event.preventDefault();
+        const chosen = matchingSlashCommands[selectedSlashIndex] || matchingSlashCommands[0];
+        handleExecuteSlash(chosen.command);
+      }
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      setIsSlashDismissed(true);
+    }
+  };
 
   return (
     <section className={`ai-workspace ${presentation === 'popup' ? 'ai-workspace--popup' : ''} ${presentation === 'sidebar' ? 'ai-workspace--sidebar' : ''}`} aria-label="AI release assistant">
@@ -211,6 +272,45 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
         )}
 
         <form className="ai-composer" onSubmit={(event) => { event.preventDefault(); ask(input); }}>
+          {showSlashSuggestions && (
+            <div className="ai-slash-suggestions" role="listbox" aria-label="Available slash commands">
+              {matchingSlashCommands.length > 0 ? (
+                <div className="ai-slash-list">
+                  {matchingSlashCommands.map((cmd, index) => (
+                    <div
+                      key={cmd.command}
+                      role="option"
+                      tabIndex={0}
+                      aria-selected={selectedSlashIndex === index}
+                      className={`ai-slash-item ${selectedSlashIndex === index ? 'active' : ''}`}
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => handleExecuteSlash(cmd.command)}
+                      onMouseEnter={() => setSelectedSlashIndex(index)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') {
+                          event.preventDefault();
+                          handleExecuteSlash(cmd.command);
+                        }
+                      }}
+                    >
+                      <span className="ai-slash-icon">
+                        <cmd.icon size={13} />
+                      </span>
+                      <kbd className="ai-slash-kbd">{cmd.command}</kbd>
+                      <span className="ai-slash-label">{cmd.label}</span>
+                      <span className="ai-slash-hint">
+                        <kbd>↵</kbd> run · <kbd>Tab</kbd> fill
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="ai-slash-empty">
+                  No command matches <strong>{input}</strong> · <button type="button" onClick={() => handleInsertSlash('/clear')}><kbd className="ai-slash-kbd">/clear</kbd></button>
+                </div>
+              )}
+            </div>
+          )}
           <span className="ai-input-shell">
             {hasClearCommand && (
               <span className="ai-command-visual" aria-hidden="true">
@@ -219,10 +319,18 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
               </span>
             )}
             <input
+              ref={inputRef}
               className={hasClearCommand ? 'ai-command-input' : ''}
               value={input}
-              onChange={(event) => setInput(event.target.value)}
-              placeholder="Ask about readiness, version drift, or approvals…"
+              onChange={(event) => {
+                setInput(event.target.value);
+                setIsSlashDismissed(false);
+                setSelectedSlashIndex(0);
+              }}
+              onFocus={() => setIsInputFocused(true)}
+              onBlur={() => window.setTimeout(() => setIsInputFocused(false), 150)}
+              onKeyDown={handleInputKeyDown}
+              placeholder="Ask about readiness, version drift, or approvals… (type / for commands)"
               aria-label="Ask the release analyst"
             />
           </span>

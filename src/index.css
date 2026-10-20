@@ -1076,6 +1076,8 @@ a {
   flex: 1;
   min-height: 0;
   /* Critical: allows flex children to shrink */
+  container-type: inline-size;
+  container-name: dashboard;
   padding: 12px 18px 14px;
   display: flex;
   flex-direction: column;
@@ -1716,6 +1718,7 @@ a {
 }
 
 .ai-composer {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1731,6 +1734,137 @@ a {
 .ai-composer:focus-within {
   border-color: rgba(56, 189, 248, 0.78);
   box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.11), 0 0 24px rgba(37, 99, 235, 0.14);
+}
+
+.ai-slash-suggestions {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  overflow: hidden;
+  padding: 4px;
+  border: 1px solid rgba(96, 165, 250, 0.35);
+  border-radius: 9px;
+  background: rgba(8, 20, 39, 0.96);
+  box-shadow: 0 12px 28px rgba(1, 8, 20, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05), 0 0 20px rgba(37, 99, 235, 0.16);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  animation: ai-slash-enter 140ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes ai-slash-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ai-slash-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.ai-slash-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: transparent;
+  color: #f3f7ff;
+  font-size: 11px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 120ms ease;
+}
+
+.ai-slash-item:hover,
+.ai-slash-item.active {
+  background: rgba(37, 99, 235, 0.22);
+}
+
+.ai-slash-icon {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  place-items: center;
+  border-radius: 5px;
+  background: rgba(37, 99, 235, 0.28);
+  color: #67d9ff;
+}
+
+.ai-slash-kbd {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border: 1px solid rgba(103, 217, 255, 0.36);
+  border-radius: 4px;
+  background: rgba(37, 99, 235, 0.25);
+  color: #a5f3fc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  flex: 0 0 auto;
+}
+
+.ai-slash-label {
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ai-slash-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #728aa8;
+  font-size: 9px;
+  font-weight: 600;
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
+.ai-slash-hint kbd {
+  padding: 1px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #cbd5e1;
+  font-size: 8.5px;
+  font-family: inherit;
+}
+
+.ai-slash-empty {
+  padding: 7px 10px;
+  color: #94a3b8;
+  font-size: 10.5px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.ai-slash-empty strong {
+  color: #e2e8f0;
+}
+
+.ai-slash-empty button {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+  vertical-align: middle;
 }
 
 .ai-composer input {
@@ -1920,9 +2054,52 @@ a {
 /* ─── KPI METRIC CARDS ─── */
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
   flex-shrink: 0;
+  width: 100%;
+}
+
+/* Dynamic container-aware adjustments when resizing dashboard or opening/closing sidebars */
+@container dashboard (max-width: 1379px) and (min-width: 880px) {
+  .metrics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@container dashboard (max-width: 879px) and (min-width: 520px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
+
+@container dashboard (max-width: 519px) {
+  .metrics-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+}
+
+/* Viewport fallback media queries */
+@media (max-width: 1540px) and (min-width: 1060px) {
+  .metrics-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1059px) and (min-width: 640px) {
+  .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
+
+@media (max-width: 639px) {
+  .metrics-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
 }
 
 .metric-card {
@@ -1931,7 +2108,8 @@ a {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
-  min-height: 104px;
+  min-height: 98px;
+  height: 100%;
   padding: 12px 14px 10px;
   box-shadow: var(--shadow-sm);
   display: flex;
@@ -2040,9 +2218,10 @@ a {
 .metric-label {
   font-size: 11px;
   color: var(--text-secondary);
-  font-weight: 500;
-  white-space: nowrap;
-  line-height: 1.1;
+  font-weight: 600;
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.25;
 }
 
 .metric-value-row {
@@ -2071,7 +2250,9 @@ a {
 .metric-subtext {
   font-size: 10px;
   color: var(--text-secondary);
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: break-word;
+  line-height: 1.2;
 }
 
 .metric-progress-wrapper {
@@ -3784,11 +3965,6 @@ a {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .metrics-grid {
-    grid-template-columns: repeat(5, minmax(190px, 1fr));
-    overflow-x: auto;
-  }
-
   .ai-workspace {
     flex: 0 0 auto;
     grid-template-rows: auto auto minmax(460px, 1fr);
@@ -3873,11 +4049,6 @@ a {
   .header-actions {
     width: 100%;
     justify-content: space-between;
-  }
-
-  .metrics-grid {
-    grid-template-columns: repeat(5, minmax(220px, 1fr));
-    overflow-x: auto;
   }
 
   .metric-label,
@@ -4392,9 +4563,6 @@ a {
 .target-release-value { max-width: 100%; overflow: hidden; font-size: clamp(15px, 1.2vw, 20px); text-overflow: ellipsis; white-space: nowrap; }
 .target-foundation-version { margin-top: 2px; font-size: 9px; }
 
-@media (min-width: 1101px) {
-  .metrics-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-}
 @media (max-width: 900px) {
   .release-plan-columns { grid-template-columns: minmax(0, 1fr); }
   .release-plan-rail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
