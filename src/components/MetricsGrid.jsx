@@ -4,11 +4,12 @@ import {
   Tag, 
   AlertTriangle, 
   Rocket, 
-  ArrowUp 
+  ArrowUp,
+  CalendarDays
 } from 'lucide-react';
 import ReleaseReadiness from './ReleaseReadiness';
 
-export default function MetricsGrid({ metrics, readinessData, onViewChecklist }) {
+export default function MetricsGrid({ metrics, readinessData, onViewChecklist, releasePlan, foundationVersion }) {
   if (!metrics) return null;
 
   return (
@@ -115,6 +116,22 @@ export default function MetricsGrid({ metrics, readinessData, onViewChecklist })
               className="progress-bar-fill" 
               style={{ width: `${metrics.releasesThisMonth.percentage}%`, backgroundColor: '#8b5cf6' }} 
             />
+          </div>
+        </div>
+      </div>
+
+      <div className="metric-card target-release-metric">
+        <div className="metric-card-top">
+          <div className="metric-icon-wrapper" style={{ backgroundColor: '#dbeafe', color: '#2563eb' }}>
+            <CalendarDays size={20} strokeWidth={2.2} />
+          </div>
+          <div className="metric-info">
+            <span className="metric-label">Target Release</span>
+            <div className="metric-value-row">
+              <span className="metric-value target-release-value">{releasePlan?.targetRelease || 'Not set'}</span>
+            </div>
+            <span className="metric-subtext">{releasePlan?.targetDate ? `Target date · ${new Date(`${releasePlan.targetDate}T12:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}` : 'Choose a target date'}</span>
+            <span className="metric-subtext target-foundation-version">Foundation · {foundationVersion || 'Not set'}</span>
           </div>
         </div>
       </div>

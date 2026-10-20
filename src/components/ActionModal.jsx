@@ -1,7 +1,7 @@
 import React from 'react';
 import { X, PlayCircle, GitCompare, RefreshCw, FileText, CheckCircle2 } from 'lucide-react';
 
-export default function ActionModal({ isOpen, onClose, repo }) {
+export default function ActionModal({ isOpen, onClose, repo, foundationVersion }) {
   if (!isOpen || !repo) return null;
 
   return (
@@ -21,8 +21,9 @@ export default function ActionModal({ isOpen, onClose, repo }) {
               <div style={{ fontSize: '13px', fontWeight: 600, marginTop: '2px' }}>{repo.environment}</div>
             </div>
             <div style={{ padding: '10px 12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '11px', color: '#64748b' }}>Change Order</span>
-              <div style={{ fontSize: '13px', fontWeight: 600, marginTop: '2px' }}>{repo.changeOrder}</div>
+              <span style={{ fontSize: '11px', color: '#64748b' }}>Published build</span>
+              <div style={{ fontSize: '13px', fontWeight: 600, fontFamily: 'monospace', marginTop: '2px' }}>{repo.publishedVersion || repo.nonProdVersion}</div>
+              <small style={{ color: '#64748b' }}>Build {repo.jenkinsBuild} · Foundation {repo.buildFoundationVersion || foundationVersion}</small>
             </div>
             <div style={{ padding: '10px 12px', backgroundColor: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <span style={{ fontSize: '11px', color: '#64748b' }}>Production Version</span>
@@ -101,7 +102,7 @@ export default function ActionModal({ isOpen, onClose, repo }) {
                 cursor: 'pointer'
               }}
               onClick={() => {
-                alert(`Approving version override for ${repo.name} under ${repo.changeOrder}`);
+                alert(`Approving version override for ${repo.name} at ${repo.nonProdVersion}`);
                 onClose();
               }}
             >

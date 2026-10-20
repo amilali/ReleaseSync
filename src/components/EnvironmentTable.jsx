@@ -19,7 +19,7 @@ const COLUMN_OPTIONS = [
   ['nonProdVersion', 'Non-Prod Version'],
   ['hfVersion', 'HF Version'],
   ['lastDeployed', 'Last Deployed'],
-  ['changeOrder', 'Change Order'],
+  ['buildVersion', 'Build Version'],
   ['status', 'Status'],
   ['actions', 'Actions']
 ];
@@ -280,7 +280,7 @@ export default function EnvironmentTable({ repositories, totalRepositories, foun
       <div className="table-header-bar">
         <div className="card-header-left">
           <h2 className="card-title">Repository Environment Versions</h2>
-          <p className="card-subtitle">Showing {filteredRepos.length} of {repositories?.length || 0} listed repositories · {totalRepositories} total for this release</p>
+              <p className="card-subtitle">Showing {filteredRepos.length} of {repositories?.length || 0} listed repositories · {totalRepositories} total for this release</p>
         </div>
 
         <div className="table-toolbar-actions">
@@ -335,7 +335,7 @@ export default function EnvironmentTable({ repositories, totalRepositories, foun
                 </div>
               </th>}
               {renderedColumns.lastDeployed && <th className={columnClass('lastDeployed', 'column-secondary')} style={{ width: '120px' }}>Last Deployed</th>}
-              {renderedColumns.changeOrder && <th className={columnClass('changeOrder')} style={{ width: '90px' }}>Change Order</th>}
+              {renderedColumns.buildVersion && <th className={columnClass('buildVersion')} style={{ width: '150px' }}>Published Build</th>}
               {renderedColumns.status && <th className={columnClass('status')} style={{ width: '140px' }}>
                 <div className="status-column-heading">
                   <span>Status</span>
@@ -389,11 +389,10 @@ export default function EnvironmentTable({ repositories, totalRepositories, foun
                     {repo.lastDeployed}
                   </td>}
 
-                  {/* Change Order */}
-                  {renderedColumns.changeOrder && <td className={columnClass('changeOrder')} style={{ width: '90px' }}>
-                    <span style={{ fontWeight: 500, color: '#334155', fontSize: '11px' }}>
-                      {repo.changeOrder}
-                    </span>
+                  {/* Published build version, its build number, and foundation baseline */}
+                  {renderedColumns.buildVersion && <td className={columnClass('buildVersion')} style={{ width: '150px' }}>
+                    <span className="published-build-version">{repo.publishedVersion || repo.nonProdVersion}</span>
+                    <small className="published-build-meta">Build {repo.jenkinsBuild} · Foundation {repo.buildFoundationVersion || foundationVersion}</small>
                   </td>}
 
                   {/* Status */}

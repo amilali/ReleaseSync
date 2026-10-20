@@ -27,7 +27,7 @@ function worksheetXml(rows) {
   }).join('');
 
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData>${rowXml}</sheetData><autoFilter ref="A6:J${rows.length}"/></worksheet>`;
+    `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData>${rowXml}</sheetData><autoFilter ref="A6:K${rows.length}"/></worksheet>`;
 }
 
 function crc32(bytes) {
@@ -122,7 +122,7 @@ export function downloadRepositoryManifest(repositories, { releaseName, foundati
     ['Foundation Baseline', foundationVersion],
     ['Exported At', new Date().toLocaleString()],
     [],
-    ['Repository', 'Environment', 'Foundation Baseline', 'PROD Version', 'Non-PROD Version', 'HF Version', 'Jenkins Build', 'Last Deployed', 'Change Order', 'Status'],
+    ['Repository', 'Environment', 'Foundation Baseline', 'PROD Version', 'Non-PROD Version', 'HF Version', 'Published Build Version', 'Jenkins Build', 'Build Foundation Version', 'Last Deployed', 'Status'],
     ...repositories.map((repo) => [
       repo.name,
       repo.environment,
@@ -130,9 +130,10 @@ export function downloadRepositoryManifest(repositories, { releaseName, foundati
       repo.prodVersion,
       repo.nonProdVersion,
       repo.hfVersion,
+      repo.publishedVersion || repo.nonProdVersion,
       repo.jenkinsBuild,
+      repo.buildFoundationVersion || foundationVersion,
       repo.lastDeployed,
-      repo.changeOrder,
       repo.status,
     ]),
   ];

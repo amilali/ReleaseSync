@@ -218,6 +218,7 @@ export default function Navbar({
               className="release-menu"
               role="menu"
             >
+              <div className="release-menu-section-label">Releases</div>
               {availableReleases && availableReleases.map((rel) => (
                 <button
                   key={rel}

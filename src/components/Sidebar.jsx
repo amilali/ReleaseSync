@@ -25,6 +25,7 @@ export default function Sidebar({ activeNav = 'Dashboard', onNavClick, onAskAI, 
     { name: 'Deployments', icon: ShieldCheck },
     { name: 'Code Freeze', icon: Clock },
     { name: 'Reports', icon: BarChart3 },
+    { name: 'AI Assistant', icon: Sparkles },
   ];
 
   return (
