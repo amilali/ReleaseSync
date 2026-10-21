@@ -18,8 +18,6 @@ const COLUMN_OPTIONS = [
   ['prodVersion', 'Prod Version'],
   ['nonProdVersion', 'Non-Prod Version'],
   ['hfVersion', 'HF Version'],
-  ['lastDeployed', 'Last Deployed'],
-  ['buildVersion', 'Build Version'],
   ['status', 'Status'],
   ['actions', 'Actions']
 ];
@@ -334,8 +332,6 @@ export default function EnvironmentTable({ repositories, totalRepositories, foun
                   <span className="version-heading-with-info">HF Version {renderFoundationInfoButton('HF')}</span>
                 </div>
               </th>}
-              {renderedColumns.lastDeployed && <th className={columnClass('lastDeployed', 'column-secondary')} style={{ width: '120px' }}>Last Deployed</th>}
-              {renderedColumns.buildVersion && <th className={columnClass('buildVersion')} style={{ width: '150px' }}>Published Build</th>}
               {renderedColumns.status && <th className={columnClass('status')} style={{ width: '140px' }}>
                 <div className="status-column-heading">
                   <span>Status</span>
@@ -382,17 +378,6 @@ export default function EnvironmentTable({ repositories, totalRepositories, foun
                     >
                       {repo.hfVersion}
                     </span>
-                  </td>}
-
-                  {/* Last Deployed */}
-                  {renderedColumns.lastDeployed && <td className={columnClass('lastDeployed', 'column-secondary')} style={{ color: '#475569', fontSize: '11px', width: '120px' }}>
-                    {repo.lastDeployed}
-                  </td>}
-
-                  {/* Published build version, its build number, and foundation baseline */}
-                  {renderedColumns.buildVersion && <td className={columnClass('buildVersion')} style={{ width: '150px' }}>
-                    <span className="published-build-version">{repo.publishedVersion || repo.nonProdVersion}</span>
-                    <small className="published-build-meta">Build {repo.jenkinsBuild} · Foundation {repo.buildFoundationVersion || foundationVersion}</small>
                   </td>}
 
                   {/* Status */}
