@@ -1,41 +1,52 @@
 # AI Assistant Implementation Handoff
 
-This guide records the assistant work in this commit so another developer or AI can locate and reuse each feature.
+This handoff summarizes the current Ask AI experience and the planner prototypes so future work can continue without reconstructing the interaction or its limits.
 
-## Files
+## Main files
 
-- `src/components/AIAssistant.jsx` contains local prompt analysis, response rendering, Markdown tables, simulated tool activity, human approval, handoff drafts, and stop behavior.
-- `src/components/Sidebar.jsx` contains the drag-resizable assistant panel.
-- `src/index.css` contains panel, message, composer, activity, approval, handoff, Markdown, stop, and resize styles.
+- `src/components/AIAssistant.jsx` contains quick-start prompts, local prompt analysis, assistant activity, guided release and revert planners, preflight checks, preview answers, and demo approval/handoff behavior.
+- `src/components/Sidebar.jsx` hosts the resizable Ask AI sidebar and its compact header controls.
+- `src/index.css` styles the full-page and compact assistant, glass shortcut cards, composer, message activity, guided forms, manifests, approval states, and sidebar behavior.
+- `AI_ASSISTANT_WORKFLOW.patch` records the current uncommitted source and handoff changes as a patch against the current parent commit.
 
-## Reuse guide
+## Quick starts and conversation flow
 
-### Repository answers and release context
+The four start cards are **Version drift**, **Revert plan**, **Plan your upcoming release**, and **Release readiness**. Version drift and readiness use the local dashboard analysis. The release and revert shortcuts are presented as ordinary user prompts first: the prompt appears in the transcript, the assistant shows its existing activity window, then responds that it needs a few details. The user explicitly starts the relevant guided questions with the response button.
 
-`analyzePrompt(...)` maps a question to the bundled dashboard data. It handles revert planning first, then repository-name lookups, readiness, version drift, change governance, and the general overview. Repository lookups report PROD, non-PROD, and HF versions where available and attach a source label and repository action.
+The activity animation is a local UI preview driven by `getAgentSteps(...)` and the `thinking` message state. It does not call an external agent or model.
 
-Add a new intent by adding a condition to `analyzePrompt(...)` and return an answer object with `title`, `summary`, `points`, and optional `source`, `repo`, `markdown`, or `handoff` values.
+## Guided release planner
 
-### Markdown and revert planning
+`ReleasePlanner(...)` branches between main and off-cycle releases.
 
-`MarkdownContent(...)` and `renderInlineMarkdown(...)` safely render React text for table rows, inline bold, and code. Revert prompts produce a table listing every repository's current non-PROD version and proposed target. The current demo assumes the PROD version is the revert target and flags rows that are already aligned. Human review is offered before any changes; the demo does not apply a revert.
+- Main release collects a release name/version, planned date, repository scope, and acknowledgment of selected repositories with flagged version differences.
+- Off-cycle release collects a repository, its dashboard PROD baseline, target version, reason, and change-order or approval reference.
+- `getReleasePlanChecks(...)` validates required values and version differences before the local preview answer is prepared.
+- Before a real LLM request, a backend should re-read live PROD versions, repository health, and approval/change-order state. This is marked with a `TODO(backend)` comment.
 
-### Tool activity and approval gate
+## Guided revert planner
 
-`getAgentSteps(...)` maps prompt words to activity labels. Higher impact terms such as deploy, publish, migration, delete, provision, execute, or finalize pause at the approval prompt. `describeApprovalOperation(...)` determines the action and target shown before the decision. Approval is illustrative local state only; no API call or release change is connected.
+`RevertPlanner(...)` offers two strategies:
 
-### Stop generation
+- Restore a previously verified Foundation version from RelCur.
+- Revert selected production repositories to specified old versions while keeping every unselected repository at its current PROD version.
 
-While `thinkingId` is set, the composer replaces Send with Stop. `stopGeneration(...)` clears the timer, dismisses pending approval, and replaces the loading state with a stopped response.
+The review step displays the RelCur manifest, reason, incident/change reference, and validation checklist. The preview then simulates validation, manifest composition, and a build result before presenting a human approval gate. The demo Foundation build version is synthesized from dashboard data; it is not a real RelCur result. Approval/decline only updates local UI state and never deploys.
 
-### Human handoff draft
+Before production use, backend integration should validate the live PROD and last-successful RelCur data, submit the manifest, return the actual Foundation version, and enforce authorized human approval before deployment. See the `TODO(backend)` comment in `startRevertRun(...)`.
 
-Revert results expose **Prepare human handoff**. The local draft carries the conversation, selected release, and version rows. Preparing it adds a confirmation to chat. No support ticket or message is sent because no service is connected.
+## UI and visual treatment
 
-### Resizing and visual behavior
+The Ask AI page and compact sidebar use dark blue glass panels, cyan-blue-white gradient shortcut icons, subtle card glow, and a matching gradient composer border and send button. The four shortcut icons share the Version drift color treatment. The sidebar also keeps its existing resize behavior and opening reflection sweep.
 
-`Sidebar.jsx` tracks assistant width and constrains it to the viewport. Its invisible right-edge separator supports pointer dragging, arrow keys, Home to reset, End and double-click to expand. `index.css` defines its hit area and the assistant visual treatments. The opening reflection sweep is on `.sidebar-ai-content::after` and plays when the assistant panel mounts.
+## Other assistant behavior
 
-## Demo boundary
+- `analyzePrompt(...)` maps free-text requests to bundled release and repository data.
+- `MarkdownContent(...)` and `renderInlineMarkdown(...)` render simple tables, inline code, and bold text.
+- `describeApprovalOperation(...)` summarizes local demo actions for the approval preview.
+- `stopGeneration(...)` ends a pending local response and replaces it with a stopped state.
+- Human handoff drafts are local previews; no ticket or message is sent.
 
-Answers use bundled dashboard data. Tool activity, approval, and handoff are UI demonstrations only. No external model, operation API, ticketing integration, or release mutation is connected.
+## Validation and demo boundary
+
+The current implementation was checked with `npm run build` and `git diff --check`, and the compact Ask AI/release planner interaction was reviewed in the local app. No external model, RelCur pipeline, deployment API, ticketing integration, or release mutation is connected. Treat all generated analysis, build output, and approval states as prototype UI until those integrations are implemented.

@@ -1,127 +1,439 @@
-From 1527771c7685fd02dc26b95d6c08cbd7bdaa772d Mon Sep 17 00:00:00 2001
-From: Amil Ali <amil13985@gmail.com>
-Date: Wed, 4 Nov 2026 12:15:43 +0530
-Subject: [PATCH] Add AI assistant workflow and handoff documentation
-
----
- AI_ASSISTANT_HANDOFF.md        |  41 +++++
- src/components/AIAssistant.jsx | 263 ++++++++++++++++++++++++++++++---
- src/components/Sidebar.jsx     |  50 ++++++-
- src/index.css                  | 161 ++++++++++++++++++++
- 4 files changed, 489 insertions(+), 26 deletions(-)
- create mode 100644 AI_ASSISTANT_HANDOFF.md
-
 diff --git a/AI_ASSISTANT_HANDOFF.md b/AI_ASSISTANT_HANDOFF.md
-new file mode 100644
-index 0000000..cc72f24
---- /dev/null
+index cc72f24..6d79589 100644
+--- a/AI_ASSISTANT_HANDOFF.md
 +++ b/AI_ASSISTANT_HANDOFF.md
-@@ -0,0 +1,41 @@
-+# AI Assistant Implementation Handoff
+@@ -1,41 +1,52 @@
+ # AI Assistant Implementation Handoff
+ 
+-This guide records the assistant work in this commit so another developer or AI can locate and reuse each feature.
++This handoff summarizes the current Ask AI experience and the planner prototypes so future work can continue without reconstructing the interaction or its limits.
+ 
+-## Files
++## Main files
+ 
+-- `src/components/AIAssistant.jsx` contains local prompt analysis, response rendering, Markdown tables, simulated tool activity, human approval, handoff drafts, and stop behavior.
+-- `src/components/Sidebar.jsx` contains the drag-resizable assistant panel.
+-- `src/index.css` contains panel, message, composer, activity, approval, handoff, Markdown, stop, and resize styles.
++- `src/components/AIAssistant.jsx` contains quick-start prompts, local prompt analysis, assistant activity, guided release and revert planners, preflight checks, preview answers, and demo approval/handoff behavior.
++- `src/components/Sidebar.jsx` hosts the resizable Ask AI sidebar and its compact header controls.
++- `src/index.css` styles the full-page and compact assistant, glass shortcut cards, composer, message activity, guided forms, manifests, approval states, and sidebar behavior.
++- `AI_ASSISTANT_WORKFLOW.patch` records the current uncommitted source and handoff changes as a patch against the current parent commit.
+ 
+-## Reuse guide
++## Quick starts and conversation flow
+ 
+-### Repository answers and release context
++The four start cards are **Version drift**, **Revert plan**, **Plan your upcoming release**, and **Release readiness**. Version drift and readiness use the local dashboard analysis. The release and revert shortcuts are presented as ordinary user prompts first: the prompt appears in the transcript, the assistant shows its existing activity window, then responds that it needs a few details. The user explicitly starts the relevant guided questions with the response button.
+ 
+-`analyzePrompt(...)` maps a question to the bundled dashboard data. It handles revert planning first, then repository-name lookups, readiness, version drift, change governance, and the general overview. Repository lookups report PROD, non-PROD, and HF versions where available and attach a source label and repository action.
++The activity animation is a local UI preview driven by `getAgentSteps(...)` and the `thinking` message state. It does not call an external agent or model.
+ 
+-Add a new intent by adding a condition to `analyzePrompt(...)` and return an answer object with `title`, `summary`, `points`, and optional `source`, `repo`, `markdown`, or `handoff` values.
++## Guided release planner
+ 
+-### Markdown and revert planning
++`ReleasePlanner(...)` branches between main and off-cycle releases.
+ 
+-`MarkdownContent(...)` and `renderInlineMarkdown(...)` safely render React text for table rows, inline bold, and code. Revert prompts produce a table listing every repository's current non-PROD version and proposed target. The current demo assumes the PROD version is the revert target and flags rows that are already aligned. Human review is offered before any changes; the demo does not apply a revert.
++- Main release collects a release name/version, planned date, repository scope, and acknowledgment of selected repositories with flagged version differences.
++- Off-cycle release collects a repository, its dashboard PROD baseline, target version, reason, and change-order or approval reference.
++- `getReleasePlanChecks(...)` validates required values and version differences before the local preview answer is prepared.
++- Before a real LLM request, a backend should re-read live PROD versions, repository health, and approval/change-order state. This is marked with a `TODO(backend)` comment.
+ 
+-### Tool activity and approval gate
++## Guided revert planner
+ 
+-`getAgentSteps(...)` maps prompt words to activity labels. Higher impact terms such as deploy, publish, migration, delete, provision, execute, or finalize pause at the approval prompt. `describeApprovalOperation(...)` determines the action and target shown before the decision. Approval is illustrative local state only; no API call or release change is connected.
++`RevertPlanner(...)` offers two strategies:
+ 
+-### Stop generation
++- Restore a previously verified Foundation version from RelCur.
++- Revert selected production repositories to specified old versions while keeping every unselected repository at its current PROD version.
+ 
+-While `thinkingId` is set, the composer replaces Send with Stop. `stopGeneration(...)` clears the timer, dismisses pending approval, and replaces the loading state with a stopped response.
++The review step displays the RelCur manifest, reason, incident/change reference, and validation checklist. The preview then simulates validation, manifest composition, and a build result before presenting a human approval gate. The demo Foundation build version is synthesized from dashboard data; it is not a real RelCur result. Approval/decline only updates local UI state and never deploys.
+ 
+-### Human handoff draft
++Before production use, backend integration should validate the live PROD and last-successful RelCur data, submit the manifest, return the actual Foundation version, and enforce authorized human approval before deployment. See the `TODO(backend)` comment in `startRevertRun(...)`.
+ 
+-Revert results expose **Prepare human handoff**. The local draft carries the conversation, selected release, and version rows. Preparing it adds a confirmation to chat. No support ticket or message is sent because no service is connected.
++## UI and visual treatment
+ 
+-### Resizing and visual behavior
++The Ask AI page and compact sidebar use dark blue glass panels, cyan-blue-white gradient shortcut icons, subtle card glow, and a matching gradient composer border and send button. The four shortcut icons share the Version drift color treatment. The sidebar also keeps its existing resize behavior and opening reflection sweep.
+ 
+-`Sidebar.jsx` tracks assistant width and constrains it to the viewport. Its invisible right-edge separator supports pointer dragging, arrow keys, Home to reset, End and double-click to expand. `index.css` defines its hit area and the assistant visual treatments. The opening reflection sweep is on `.sidebar-ai-content::after` and plays when the assistant panel mounts.
++## Other assistant behavior
+ 
+-## Demo boundary
++- `analyzePrompt(...)` maps free-text requests to bundled release and repository data.
++- `MarkdownContent(...)` and `renderInlineMarkdown(...)` render simple tables, inline code, and bold text.
++- `describeApprovalOperation(...)` summarizes local demo actions for the approval preview.
++- `stopGeneration(...)` ends a pending local response and replaces it with a stopped state.
++- Human handoff drafts are local previews; no ticket or message is sent.
+ 
+-Answers use bundled dashboard data. Tool activity, approval, and handoff are UI demonstrations only. No external model, operation API, ticketing integration, or release mutation is connected.
++## Validation and demo boundary
 +
-+This guide records the assistant work in this commit so another developer or AI can locate and reuse each feature.
-+
-+## Files
-+
-+- `src/components/AIAssistant.jsx` contains local prompt analysis, response rendering, Markdown tables, simulated tool activity, human approval, handoff drafts, and stop behavior.
-+- `src/components/Sidebar.jsx` contains the drag-resizable assistant panel.
-+- `src/index.css` contains panel, message, composer, activity, approval, handoff, Markdown, stop, and resize styles.
-+
-+## Reuse guide
-+
-+### Repository answers and release context
-+
-+`analyzePrompt(...)` maps a question to the bundled dashboard data. It handles revert planning first, then repository-name lookups, readiness, version drift, change governance, and the general overview. Repository lookups report PROD, non-PROD, and HF versions where available and attach a source label and repository action.
-+
-+Add a new intent by adding a condition to `analyzePrompt(...)` and return an answer object with `title`, `summary`, `points`, and optional `source`, `repo`, `markdown`, or `handoff` values.
-+
-+### Markdown and revert planning
-+
-+`MarkdownContent(...)` and `renderInlineMarkdown(...)` safely render React text for table rows, inline bold, and code. Revert prompts produce a table listing every repository's current non-PROD version and proposed target. The current demo assumes the PROD version is the revert target and flags rows that are already aligned. Human review is offered before any changes; the demo does not apply a revert.
-+
-+### Tool activity and approval gate
-+
-+`getAgentSteps(...)` maps prompt words to activity labels. Higher impact terms such as deploy, publish, migration, delete, provision, execute, or finalize pause at the approval prompt. `describeApprovalOperation(...)` determines the action and target shown before the decision. Approval is illustrative local state only; no API call or release change is connected.
-+
-+### Stop generation
-+
-+While `thinkingId` is set, the composer replaces Send with Stop. `stopGeneration(...)` clears the timer, dismisses pending approval, and replaces the loading state with a stopped response.
-+
-+### Human handoff draft
-+
-+Revert results expose **Prepare human handoff**. The local draft carries the conversation, selected release, and version rows. Preparing it adds a confirmation to chat. No support ticket or message is sent because no service is connected.
-+
-+### Resizing and visual behavior
-+
-+`Sidebar.jsx` tracks assistant width and constrains it to the viewport. Its invisible right-edge separator supports pointer dragging, arrow keys, Home to reset, End and double-click to expand. `index.css` defines its hit area and the assistant visual treatments. The opening reflection sweep is on `.sidebar-ai-content::after` and plays when the assistant panel mounts.
-+
-+## Demo boundary
-+
-+Answers use bundled dashboard data. Tool activity, approval, and handoff are UI demonstrations only. No external model, operation API, ticketing integration, or release mutation is connected.
++The current implementation was checked with `npm run build` and `git diff --check`, and the compact Ask AI/release planner interaction was reviewed in the local app. No external model, RelCur pipeline, deployment API, ticketing integration, or release mutation is connected. Treat all generated analysis, build output, and approval states as prototype UI until those integrations are implemented.
 diff --git a/src/components/AIAssistant.jsx b/src/components/AIAssistant.jsx
-index 6fe845a..295a3d9 100644
+index 295a3d9..0ccb902 100644
 --- a/src/components/AIAssistant.jsx
 +++ b/src/components/AIAssistant.jsx
-@@ -11,6 +11,9 @@ import {
-   Send,
-   ShieldCheck,
-   Sparkles,
-+  Timer,
-+  Wrench,
-+  Square,
+@@ -1,7 +1,9 @@
+ import React, { useEffect, useRef, useState } from 'react';
+ import {
++  ArrowLeft,
+   ArrowUpRight,
+   Bot,
++  CalendarDays,
+   CheckCircle2,
+   CircleAlert,
+   Maximize2,
+@@ -14,6 +16,7 @@ import {
+   Timer,
+   Wrench,
+   Square,
++  Zap,
  } from 'lucide-react';
  
  const slashCommands = [
-@@ -27,11 +30,55 @@ const suggestedPrompts = [
-   { icon: ShieldCheck, label: 'Summarize release readiness', kind: 'readiness' },
+@@ -25,11 +28,323 @@ const slashCommands = [
  ];
  
--function analyzePrompt(prompt, repositories, metrics, readiness, foundationVersion) {
-+function analyzePrompt(prompt, repositories, metrics, readiness, foundationVersion, releaseName) {
-   const normalized = prompt.toLowerCase();
-   const mismatches = repositories.filter((repo) => ['Review', 'Investigate'].includes(repo.status));
-   const highestRisk = repositories.find((repo) => repo.status === 'Investigate');
+ const suggestedPrompts = [
+-  { icon: CircleAlert, label: 'Which repositories need attention?', kind: 'attention' },
+-  { icon: GitCompareArrows, label: 'Compare version drift with Foundation', kind: 'versions' },
+-  { icon: ShieldCheck, label: 'Summarize release readiness', kind: 'readiness' },
++  { icon: GitCompareArrows, label: 'Version drift', description: 'Compare PROD and non-PROD with Foundation.', prompt: 'Compare version drift with Foundation', kind: 'versions' },
++  { icon: RotateCcw, label: 'Revert plan', description: 'Build a RelCur recovery manifest, then review deployment.', prompt: 'Create a revert plan', kind: 'rollback' },
++  { icon: CalendarDays, label: 'Plan your upcoming release', description: 'Choose main or off-cycle and complete a preflight.', prompt: 'Plan my upcoming release', kind: 'planner' },
++  { icon: ShieldCheck, label: 'Release readiness', description: 'See what is ready, blocked, or awaiting approval.', prompt: 'Summarize release readiness', kind: 'readiness' },
+ ];
  
-+  // Revert plans compare every listed non-PROD version with PROD and retain rows for human review.
-+  if (/revert|rollback|roll back/.test(normalized)) {
-+    const revertRows = repositories.map((repo) => ({
-+      name: repo.name,
-+      current: repo.nonProdVersion,
-+      target: repo.prodVersion,
-+      status: repo.nonProdVersion === repo.prodVersion ? 'Already aligned' : 'Revert to PROD version',
-+      repo,
-+    }));
-+    const markdown = [
-+      '| Repository | Current non-PROD | Proposed revert target | Action |',
-+      '| --- | --- | --- | --- |',
-+      ...revertRows.map((row) => `| ${row.name} | \`${row.current}\` | \`${row.target}\` | ${row.status} |`),
-+    ].join('\n');
++const emptyReleasePlan = {
++  type: '',
++  releaseName: '',
++  plannedDate: '',
++  selectedRepositories: [],
++  acknowledgeExceptions: false,
++  repository: '',
++  currentProdVersion: '',
++  targetVersion: '',
++  reason: '',
++  changeOrder: '',
++};
++
++const emptyRevertPlan = {
++  mode: '',
++  lastKnownGoodFoundation: '',
++  selectedRepositories: [],
++  targetVersions: {},
++  reason: '',
++  changeOrder: '',
++};
++
++const releaseVersionPattern = /^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/i;
++
++function normalizeReleaseVersion(version) {
++  return (version || '').trim().replace(/^v/i, '');
++}
++
++function getRevertPlanChecks(plan, repositories, foundationVersion) {
++  if (plan.mode === 'foundation') {
++    const targetValid = releaseVersionPattern.test(plan.lastKnownGoodFoundation.trim());
++    return [
++      { label: 'Last known good Foundation version is valid', valid: targetValid },
++      { label: 'Foundation target differs from current version', valid: targetValid && normalizeReleaseVersion(plan.lastKnownGoodFoundation) !== normalizeReleaseVersion(foundationVersion) },
++      { label: 'Recovery reason provided', valid: Boolean(plan.reason.trim()) },
++      { label: 'Change order or incident reference provided', valid: Boolean(plan.changeOrder.trim()) },
++    ];
++  }
++
++  const selectedRepositories = repositories.filter((repo) => plan.selectedRepositories.includes(repo.name));
++  return [
++    { label: 'At least one production repository selected', valid: selectedRepositories.length > 0 },
++    { label: 'Current PROD versions available for selected repositories', valid: selectedRepositories.length > 0 && selectedRepositories.every((repo) => Boolean(repo.prodVersion)) },
++    { label: 'Each revert target uses a valid version format', valid: selectedRepositories.length > 0 && selectedRepositories.every((repo) => releaseVersionPattern.test((plan.targetVersions[repo.name] || '').trim())) },
++    { label: 'Each revert target differs from current PROD', valid: selectedRepositories.length > 0 && selectedRepositories.every((repo) => normalizeReleaseVersion(plan.targetVersions[repo.name]) !== normalizeReleaseVersion(repo.prodVersion)) },
++    { label: 'Recovery reason provided', valid: Boolean(plan.reason.trim()) },
++    { label: 'Change order or incident reference provided', valid: Boolean(plan.changeOrder.trim()) },
++  ];
++}
++
++function getRelCurManifest(plan, repositories) {
++  return repositories.map((repo) => {
++    const selected = plan.mode === 'repositories' && plan.selectedRepositories.includes(repo.name);
 +    return {
-+      title: 'Revert plan · human review required',
-+      summary: `Here are the non-PROD versions for ${releaseName}. Proposed targets match each repository’s current PROD version; confirm the scope and target versions with Release Support before applying a revert.`,
-+      markdown,
-+      points: [],
-+      revertRows,
-+      handoff: true,
-+      source: `${releaseName} · repository PROD and non-PROD versions`,
++      name: repo.name,
++      current: repo.prodVersion || 'Not available',
++      target: selected ? (plan.targetVersions[repo.name] || 'Target required') : (repo.prodVersion || 'Not available'),
++      action: selected ? 'Revert selected repository' : 'Keep current PROD',
++    };
++  });
++}
++
++function getSimulatedFoundationVersion(version) {
++  const match = normalizeReleaseVersion(version).match(/^(\d+)\.(\d+)\.(\d+)$/);
++  return match ? `${match[1]}.${match[2]}.${Number(match[3]) + 1}` : 'Awaiting RelCur build result';
++}
++
++function getReleasePlanChecks(plan, repositories) {
++  if (plan.type === 'main') {
++    const selectedRepositories = repositories.filter((repo) => plan.selectedRepositories.includes(repo.name));
++    const flaggedRepositories = selectedRepositories.filter((repo) => ['Review', 'Investigate'].includes(repo.status));
++    const plannedDate = plan.plannedDate ? new Date(`${plan.plannedDate}T00:00:00`) : null;
++    const today = new Date();
++    today.setHours(0, 0, 0, 0);
++    return [
++      { label: 'Release name or version provided', valid: Boolean(plan.releaseName.trim()) },
++      { label: 'Planned date is today or later', valid: Boolean(plannedDate && plannedDate >= today) },
++      { label: 'At least one repository selected', valid: plan.selectedRepositories.length > 0 },
++      { label: 'PROD and non-PROD baselines available for each selected repository', valid: selectedRepositories.length > 0 && selectedRepositories.every((repo) => Boolean(repo.prodVersion && repo.nonProdVersion)) },
++      { label: flaggedRepositories.length ? 'Flagged version exceptions acknowledged' : 'No flagged version exceptions in scope', valid: flaggedRepositories.length === 0 || plan.acknowledgeExceptions },
++    ];
++  }
++
++  const selectedRepository = repositories.find((repo) => repo.name === plan.repository);
++  const targetVersionValid = /^v?\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/i.test(plan.targetVersion.trim());
++  const normalizedTarget = plan.targetVersion.trim().replace(/^v/i, '');
++  const normalizedProd = plan.currentProdVersion.trim().replace(/^v/i, '');
++  return [
++    { label: 'Repository selected', valid: Boolean(selectedRepository) },
++    { label: 'Current PROD version loaded from dashboard', valid: Boolean(plan.currentProdVersion) },
++    { label: 'Target version uses a valid format (for example, 2.4.1)', valid: targetVersionValid },
++    { label: 'Target version differs from current PROD', valid: Boolean(normalizedTarget) && normalizedTarget !== normalizedProd },
++    { label: 'Off-cycle reason provided', valid: Boolean(plan.reason.trim()) },
++    { label: 'Change order or approval reference provided', valid: Boolean(plan.changeOrder.trim()) },
++  ];
++}
++
++function createReleasePlanAnswer(plan, repositories, foundationVersion) {
++  if (plan.type === 'main') {
++    const selectedRepositories = repositories.filter((repo) => plan.selectedRepositories.includes(repo.name));
++    const selectedBaselines = selectedRepositories.map((repo) => `${repo.name} (PROD ${repo.prodVersion}; non-PROD ${repo.nonProdVersion}; status ${repo.status})`);
++    return {
++      title: `Main release brief · ${plan.releaseName}`,
++      summary: `Preflight passed for ${plan.releaseName}, planned for ${plan.plannedDate}. The brief is ready for AI readiness and risk analysis.`,
++      points: [`Repository baselines: ${selectedBaselines.join('; ')}.`, `Foundation baseline: ${foundationVersion}.`],
++      source: 'Release planner preflight · current dashboard data',
 +    };
 +  }
-+  const mentionedRepo = repositories.find((repo) => normalized.includes(repo.name.toLowerCase()));
 +
-+  if (mentionedRepo) {
-+    const statusLabel = mentionedRepo.status === 'Investigate' ? 'Critical mismatch'
-+      : mentionedRepo.status === 'Review' ? 'Mismatch review'
-+        : mentionedRepo.status === 'Match' ? 'Versions match' : 'Deployment in progress';
++  const repository = repositories.find((repo) => repo.name === plan.repository);
++  return {
++    title: `Off-cycle brief · ${plan.repository}`,
++    summary: `Preflight passed. Current PROD is ${plan.currentProdVersion}; proposed target is ${plan.targetVersion}. Review the version difference and release reason before planning.`,
++    points: [
++      `Version change: PROD ${plan.currentProdVersion} → target ${plan.targetVersion}.`,
++      `Reason: ${plan.reason.trim()}.`,
++      `Change order / approval: ${plan.changeOrder.trim()}.`,
++      repository?.status ? `Current repository status: ${repository.status}.` : 'Review repository status before approval.',
++    ],
++    repo: repository,
++    source: 'Release planner preflight · current dashboard data',
++  };
++}
++
++function ReleasePlanner({ step, plan, repositories, checks, planIsValid, setStep, updatePlan, selectType, selectRepository, submit }) {
++  const selectedRepository = repositories.find((repo) => repo.name === plan.repository);
++  const progress = `${step + 1} of 3`;
++  const toggleRepository = (name, checked) => {
++    updatePlan('selectedRepositories', checked
++      ? [...new Set([...plan.selectedRepositories, name])]
++      : plan.selectedRepositories.filter((item) => item !== name));
++    updatePlan('acknowledgeExceptions', false);
++  };
++  const flaggedRepositories = repositories.filter((repo) => plan.selectedRepositories.includes(repo.name) && ['Review', 'Investigate'].includes(repo.status));
++
++  return (
++    <div className="ai-planner">
++      <div className="ai-planner-topline">
++        <span>RELEASE PLANNER</span>
++        <span>STEP {progress}</span>
++      </div>
++      <div className="ai-planner-progress" aria-label={`Step ${progress}`}><span style={{ width: `${((step + 1) / 3) * 100}%` }} /></div>
++
++      {step === 0 ? (
++        <>
++          <h3>Plan your upcoming release</h3>
++          <p className="ai-planner-intro">First, choose the release path. I’ll ask for the details needed to preflight the plan.</p>
++          <h4>Which release are you planning?</h4>
++          <div className="ai-plan-type-options">
++            <button type="button" onClick={() => selectType('main')}>
++              <span className="ai-plan-option-icon"><CalendarDays size={19} /></span>
++              <span><strong>Main release</strong><small>Plan a scheduled release across one or more repositories.</small></span>
++              <ArrowUpRight size={15} />
++            </button>
++            <button type="button" onClick={() => selectType('offcycle')}>
++              <span className="ai-plan-option-icon"><Zap size={19} /></span>
++              <span><strong>Off-cycle release</strong><small>Plan an exception for a specific repository and version.</small></span>
++              <ArrowUpRight size={15} />
++            </button>
++          </div>
++          <button className="ai-planner-cancel" type="button" onClick={() => setStep(null)}>Back to quick starts</button>
++        </>
++      ) : step === 1 ? (
++        <>
++          <button className="ai-planner-back" type="button" onClick={() => setStep(0)}><ArrowLeft size={14} /> Change release type</button>
++          <h3>{plan.type === 'main' ? 'Main release details' : 'Off-cycle release details'}</h3>
++          <p className="ai-planner-intro">Fill in the required details. The next step checks for missing information before the AI brief is prepared.</p>
++
++          {plan.type === 'main' ? (
++            <div className="ai-planner-fields">
++              <label className="ai-planner-field">Release name or target version <span>Required</span>
++                <input value={plan.releaseName} onChange={(event) => updatePlan('releaseName', event.target.value)} placeholder="e.g., Release 2026.12" />
++              </label>
++              <label className="ai-planner-field">Planned deployment date <span>Required</span>
++                <input type="date" value={plan.plannedDate} onChange={(event) => updatePlan('plannedDate', event.target.value)} />
++              </label>
++              <fieldset className="ai-planner-repositories">
++                <legend>Repositories in scope <span>Choose one or more</span></legend>
++                <div className="ai-planner-repo-list">
++                  {repositories.map((repo) => (
++                    <label key={repo.name}>
++                      <input type="checkbox" checked={plan.selectedRepositories.includes(repo.name)} onChange={(event) => toggleRepository(repo.name, event.target.checked)} />
++                      <span>{repo.name}<small>PROD {repo.prodVersion || 'not available'}</small></span>
++                    </label>
++                  ))}
++                  {repositories.length === 0 && <p>No repositories are available in the current dashboard context.</p>}
++                </div>
++              </fieldset>
++              {flaggedRepositories.length > 0 && <div className="ai-planner-exceptions">
++                <strong><CircleAlert size={14} /> Version exceptions in scope</strong>
++                <p>Review these repository differences before the main release plan:</p>
++                <ul>{flaggedRepositories.map((repo) => <li key={repo.name}>{repo.name} · {repo.status} · PROD {repo.prodVersion} / non-PROD {repo.nonProdVersion}</li>)}</ul>
++                <label><input type="checkbox" checked={plan.acknowledgeExceptions} onChange={(event) => updatePlan('acknowledgeExceptions', event.target.checked)} /> I’ve reviewed these exceptions and will account for them in the release.</label>
++              </div>}
++            </div>
++          ) : (
++            <div className="ai-planner-fields">
++              <label className="ai-planner-field">Repository <span>Required</span>
++                <select value={plan.repository} onChange={(event) => selectRepository(event.target.value)}>
++                  <option value="">Choose a repository</option>
++                  {repositories.map((repo) => <option key={repo.name} value={repo.name}>{repo.name}</option>)}
++                </select>
++              </label>
++              <div className="ai-planner-baseline"><span>Current PROD baseline</span><strong>{plan.currentProdVersion || 'Select a repository to load its PROD version'}</strong><small>Loaded from the current dashboard snapshot.</small></div>
++              <label className="ai-planner-field">Proposed target version <span>Required</span>
++                <input value={plan.targetVersion} onChange={(event) => updatePlan('targetVersion', event.target.value)} placeholder="e.g., 2.4.1" />
++              </label>
++              <label className="ai-planner-field">Why is this release needed? <span>Required</span>
++                <textarea value={plan.reason} onChange={(event) => updatePlan('reason', event.target.value)} placeholder="Describe the fix, risk, or customer need." rows={2} />
++              </label>
++              <label className="ai-planner-field">Change order or approval reference <span>Required</span>
++                <input value={plan.changeOrder} onChange={(event) => updatePlan('changeOrder', event.target.value)} placeholder="e.g., CHG-123456" />
++              </label>
++            </div>
++          )}
++
++          <div className="ai-planner-actions">
++            <button className="ai-planner-cancel" type="button" onClick={() => setStep(null)}>Cancel</button>
++            <button className="ai-planner-primary" type="button" onClick={() => setStep(2)}>Review plan <ArrowUpRight size={15} /></button>
++          </div>
++        </>
++      ) : (
++        <>
++          <button className="ai-planner-back" type="button" onClick={() => setStep(1)}><ArrowLeft size={14} /> Edit details</button>
++          <h3>Preflight your release brief</h3>
++          <p className="ai-planner-intro">Check the required details before preparing the brief for AI analysis.</p>
++          <div className="ai-plan-review-card">
++            <span>{plan.type === 'main' ? 'MAIN RELEASE' : 'OFF-CYCLE RELEASE'}</span>
++            {plan.type === 'main' ? <>
++              <strong>{plan.releaseName || 'Release name not provided'}</strong>
++              <p>Planned date · {plan.plannedDate || 'Not provided'}</p>
++              <p>Repositories · {plan.selectedRepositories.length ? plan.selectedRepositories.join(', ') : 'None selected'}</p>
++              {flaggedRepositories.length > 0 && <p>Flagged version exceptions · {flaggedRepositories.map((repo) => repo.name).join(', ')} · {plan.acknowledgeExceptions ? 'acknowledged' : 'acknowledgment required'}</p>}
++            </> : <>
++              <strong>{plan.repository || 'Repository not selected'}</strong>
++              <p>Current PROD · {plan.currentProdVersion || 'Not available'}</p>
++              <p>Proposed target · {plan.targetVersion || 'Not provided'}</p>
++              {plan.currentProdVersion && plan.targetVersion && <p className="ai-plan-version-delta">Version difference · {plan.currentProdVersion} → {plan.targetVersion}</p>}
++              <p>Reason · {plan.reason || 'Not provided'}</p>
++              <p>Change order · {plan.changeOrder || 'Not provided'}</p>
++            </>}
++          </div>
++          <div className="ai-plan-checklist" aria-label="Release preflight checks">
++            {checks.map((check) => <div className={check.valid ? 'is-valid' : 'is-missing'} key={check.label}>{check.valid ? <CheckCircle2 size={15} /> : <CircleAlert size={15} />}<span>{check.label}</span></div>)}
++          </div>
++          <p className="ai-planner-backend-note">Prototype preflight uses dashboard data. A connected backend should recheck live PROD versions, repository health, and approval status before sending this brief for AI analysis.</p>
++          <div className="ai-planner-actions">
++            <button className="ai-planner-cancel" type="button" onClick={() => setStep(null)}>Cancel</button>
++            <button className="ai-planner-primary" type="button" disabled={!planIsValid} onClick={submit}><Sparkles size={15} /> Prepare AI brief</button>
++          </div>
++        </>
++      )}
++    </div>
++  );
++}
++
++function RevertPlanner({ step, plan, repositories, checks, planIsValid, updatePlan, setStep, selectMode, startRun, runStatus, runStage, resolveRun, foundationVersion }) {
++  const manifest = getRelCurManifest(plan, repositories);
++  const simulatedFoundation = plan.mode === 'foundation'
++    ? plan.lastKnownGoodFoundation
++    : getSimulatedFoundationVersion(foundationVersion);
++  const stages = ['Validate selected versions and recovery reference', 'Compose RelCur manifest from PROD baselines', 'Build preview and capture Foundation version'];
++  return <div className="ai-planner ai-revert-planner">
++    <div className="ai-planner-topline"><span>REVERT PLANNER</span><span>STEP {step + 1} OF 4</span></div>
++    <div className="ai-planner-progress"><span style={{ width: `${((step + 1) / 4) * 100}%` }} /></div>
++    {step === 0 ? <>
++      <h3>Plan a controlled revert</h3>
++      <p className="ai-planner-intro">Choose what needs restoring. We’ll keep unaffected production repositories at their current versions and pause for your approval before deployment.</p>
++      <h4>What are you reverting?</h4>
++      <div className="ai-plan-type-options">
++        <button type="button" onClick={() => selectMode('foundation')}><span className="ai-plan-option-icon"><RotateCcw size={19} /></span><span><strong>Restore a Foundation build</strong><small>Use a previously verified Foundation version from RelCur.</small></span><ArrowUpRight size={15} /></button>
++        <button type="button" onClick={() => selectMode('repositories')}><span className="ai-plan-option-icon"><GitCompareArrows size={19} /></span><span><strong>Revert selected repositories</strong><small>Set old versions for selected repositories; keep all others on current PROD.</small></span><ArrowUpRight size={15} /></button>
++      </div>
++      <button className="ai-planner-cancel" type="button" onClick={() => setStep(null)}>Back to quick starts</button>
++    </> : step === 1 ? <>
++      <button className="ai-planner-back" type="button" onClick={() => setStep(0)}><ArrowLeft size={14} /> Change revert scope</button>
++      <h3>{plan.mode === 'foundation' ? 'Foundation restore details' : 'Repository revert details'}</h3>
++      <p className="ai-planner-intro">Provide the recovery target and traceable reason. Dashboard values are a starting point and must be checked against RelCur before any real build.</p>
++      <div className="ai-planner-fields">
++        {plan.mode === 'foundation' ? <>
++          <div className="ai-planner-baseline"><span>Current Foundation version</span><strong>{foundationVersion}</strong><small>Dashboard snapshot; verify the last successful RelCur build.</small></div>
++          <label className="ai-planner-field">Last known good Foundation version <span>Required</span><input value={plan.lastKnownGoodFoundation} onChange={(e) => updatePlan('lastKnownGoodFoundation', e.target.value)} placeholder="e.g., 3.8.4" /></label>
++        </> : <fieldset className="ai-planner-repositories ai-revert-repositories"><legend>Select repositories to revert <span>Unselected repositories stay on PROD</span></legend>
++          <div className="ai-revert-repo-list">{repositories.map((repo) => {
++            const selected = plan.selectedRepositories.includes(repo.name);
++            return <div className="ai-revert-repo-row" key={repo.name}><label><input type="checkbox" checked={selected} onChange={(e) => updatePlan('selectedRepositories', e.target.checked ? [...new Set([...plan.selectedRepositories, repo.name])] : plan.selectedRepositories.filter((name) => name !== repo.name))} /><span><strong>{repo.name}</strong><small>Current PROD · {repo.prodVersion || 'not available'}</small></span></label>{selected && <label className="ai-planner-field">Revert target version<input value={plan.targetVersions[repo.name] || ''} onChange={(e) => updatePlan('targetVersions', { ...plan.targetVersions, [repo.name]: e.target.value })} placeholder="Previously deployed version" /></label>}</div>;
++          })}{repositories.length === 0 && <p>No repositories are available in this dashboard context.</p>}</div>
++        </fieldset>}
++        <label className="ai-planner-field">Reason for recovery <span>Required</span><textarea value={plan.reason} onChange={(e) => updatePlan('reason', e.target.value)} placeholder="Incident, regression, or release issue being addressed." rows={2} /></label>
++        <label className="ai-planner-field">Change order or incident reference <span>Required</span><input value={plan.changeOrder} onChange={(e) => updatePlan('changeOrder', e.target.value)} placeholder="e.g., INC-123456 or CHG-123456" /></label>
++      </div>
++      <div className="ai-planner-actions"><button className="ai-planner-cancel" type="button" onClick={() => setStep(null)}>Cancel</button><button className="ai-planner-primary" type="button" onClick={() => setStep(2)}>Review RelCur plan <ArrowUpRight size={15} /></button></div>
++    </> : step === 2 ? <>
++      <button className="ai-planner-back" type="button" onClick={() => setStep(1)}><ArrowLeft size={14} /> Edit recovery details</button>
++      <h3>Review the recovery manifest</h3>
++      <p className="ai-planner-intro">Confirm the targets before the simulated RelCur workflow. Selected rows use your old version; every other repository remains on its current PROD version.</p>
++      <div className="ai-plan-review-card"><span>{plan.mode === 'foundation' ? 'FOUNDATION RESTORE' : 'SELECTED REPOSITORY REVERT'}</span><strong>{plan.mode === 'foundation' ? `Foundation ${plan.lastKnownGoodFoundation || 'target required'}` : `${plan.selectedRepositories.length} selected · ${repositories.length - plan.selectedRepositories.length} kept at PROD`}</strong><p>Recovery reason · {plan.reason || 'Not provided'}</p><p>Change / incident · {plan.changeOrder || 'Not provided'}</p></div>
++      {plan.mode === 'repositories' && <div className="ai-revert-manifest-wrap"><table className="ai-revert-manifest"><thead><tr><th>Repository</th><th>Current PROD</th><th>RelCur target</th><th>Action</th></tr></thead><tbody>{manifest.map((row) => <tr key={row.name}><td>{row.name}</td><td>{row.current}</td><td>{row.target}</td><td>{row.action}</td></tr>)}</tbody></table></div>}
++      <div className="ai-plan-checklist">{checks.map((check) => <div className={check.valid ? 'is-valid' : 'is-missing'} key={check.label}>{check.valid ? <CheckCircle2 size={15} /> : <CircleAlert size={15} />}<span>{check.label}</span></div>)}</div>
++      <p className="ai-planner-backend-note">Backend placeholder: validate live PROD and last-successful RelCur data, assemble and submit the manifest, retrieve the actual Foundation build version, then require an authorized human approval before deployment.</p>
++      <div className="ai-planner-actions"><button className="ai-planner-cancel" type="button" onClick={() => setStep(null)}>Cancel</button><button className="ai-planner-primary" type="button" disabled={!planIsValid} onClick={startRun}><Sparkles size={15} /> Preview recovery</button></div>
++    </> : <>
++      <h3>{runStatus === 'running' ? 'Preparing recovery preview' : runStatus === 'awaiting-approval' ? 'Human approval required' : runStatus === 'approved' ? 'Demo approval recorded' : runStatus === 'declined' ? 'Recovery declined' : 'Recovery preview'}</h3>
++      <p className="ai-planner-intro">{runStatus === 'awaiting-approval' ? 'Review the proposed Foundation version and scope. No deployment starts until an authorized person approves.' : runStatus === 'approved' ? 'Approval is recorded in this UI demo only. No pipeline or deployment was triggered.' : runStatus === 'declined' ? 'The recovery was declined in this UI demo. No pipeline or deployment was triggered.' : 'The local prototype is walking through the recovery checks. No pipeline or deployment is connected.'}</p>
++      <div className="ai-revert-run-steps">{stages.map((label, index) => <div key={label} className={index < runStage ? 'is-done' : index === runStage && runStatus === 'running' ? 'is-active' : ''}>{index < runStage || runStatus !== 'running' && runStatus !== 'idle' ? <CheckCircle2 size={16} /> : <span className="ai-revert-run-dot" />}<span>{label}</span></div>)}</div>
++      {runStatus === 'awaiting-approval' || runStatus === 'approved' || runStatus === 'declined' ? <div className="ai-revert-approval"><span>SIMULATED BUILD RESULT</span><strong>Foundation {simulatedFoundation}</strong><p>{plan.mode === 'foundation' ? `Restore target · Foundation ${plan.lastKnownGoodFoundation}` : `RelCur manifest · ${plan.selectedRepositories.length} repositories reverted; ${repositories.length - plan.selectedRepositories.length} retain current PROD`}</p><p>Reference · {plan.changeOrder} · {plan.reason}</p><small>Demo only: verify actual RelCur build output and deployment target in the connected backend.</small>{runStatus === 'awaiting-approval' && <div className="ai-planner-actions"><button className="ai-planner-cancel" type="button" onClick={() => resolveRun(false)}>Decline</button><button className="ai-planner-primary" type="button" onClick={() => resolveRun(true)}><ShieldCheck size={15} /> Approve demo deployment</button></div>}</div> : null}
++      {(runStatus === 'approved' || runStatus === 'declined') && <button className="ai-planner-cancel" type="button" onClick={() => setStep(null)}>Back to quick starts</button>}
++    </>}
++  </div>;
++}
++
+ function analyzePrompt(prompt, repositories, metrics, readiness, foundationVersion, releaseName) {
+   const normalized = prompt.toLowerCase();
+   const mismatches = repositories.filter((repo) => ['Review', 'Investigate'].includes(repo.status));
+@@ -79,6 +394,15 @@ function analyzePrompt(prompt, repositories, metrics, readiness, foundationVersi
+     };
+   }
+ 
++  if (/specific repository|analyze a repository/.test(normalized)) {
 +    return {
-+      title: mentionedRepo.name,
-+      summary: `${statusLabel}. PROD is ${mentionedRepo.prodVersion}; non-PROD is ${mentionedRepo.nonProdVersion}${mentionedRepo.hfVersion ? `; HF is ${mentionedRepo.hfVersion}` : ''}.`,
-+      points: [
-+        mentionedRepo.changeOrder ? `Change order: ${mentionedRepo.changeOrder}.` : `Foundation baseline: ${foundationVersion}.`,
-+        mentionedRepo.status === 'Investigate' || mentionedRepo.status === 'Review'
-+          ? 'Review the version difference before release sign-off.'
-+          : 'No version review is currently flagged for this repository.',
-+      ],
-+      repo: mentionedRepo,
++      title: 'Choose a repository to analyze',
++      summary: 'Tell me the repository name and I’ll review its PROD, non-PROD, and HF versions, current status, related change order, and release risk.',
++      points: ['For example: “Analyze Claims Gateway” or “What is the release risk for Agency API?”'],
 +      source: `${releaseName} · Repository status`,
 +    };
 +  }
@@ -129,578 +441,1070 @@ index 6fe845a..295a3d9 100644
    if (/readiness|ready|block|release summary|sign.?off/.test(normalized)) {
      const blocked = readiness.breakdown.find((item) => item.status === 'Blocked')?.count ?? 0;
      const needsReview = readiness.breakdown.find((item) => item.status === 'Needs Review')?.count ?? 0;
-@@ -78,11 +125,80 @@ function analyzePrompt(prompt, repositories, metrics, readiness, foundationVersi
-   };
- }
- 
-+// Safe, dependency-free rendering for the inline Markdown and tables used by assistant answers.
-+function renderInlineMarkdown(text) {
-+  return text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g).map((part, index) => {
-+    if (part.startsWith('`') && part.endsWith('`')) return <code key={index}>{part.slice(1, -1)}</code>;
-+    if (part.startsWith('**') && part.endsWith('**')) return <strong key={index}>{part.slice(2, -2)}</strong>;
-+    return part;
-+  });
-+}
-+
-+function MarkdownContent({ content }) {
-+  const lines = content.split('\n');
-+  const blocks = [];
-+  for (let index = 0; index < lines.length;) {
-+    if (lines[index].trim().startsWith('|')) {
-+      const rows = [];
-+      while (index < lines.length && lines[index].trim().startsWith('|')) {
-+        const cells = lines[index].trim().replace(/^\||\|$/g, '').split('|').map((cell) => cell.trim());
-+        if (!cells.every((cell) => /^:?-{3,}:?$/.test(cell))) rows.push(cells);
-+        index += 1;
-+      }
-+      blocks.push(<div className="ai-markdown-table-wrap" key={`table-${index}`}><table className="ai-markdown-table"><thead><tr>{(rows[0] || []).map((cell, cellIndex) => <th key={cellIndex}>{renderInlineMarkdown(cell)}</th>)}</tr></thead><tbody>{rows.slice(1).map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{renderInlineMarkdown(cell)}</td>)}</tr>)}</tbody></table></div>);
-+      continue;
-+    }
-+    const line = lines[index++];
-+    if (line.trim()) blocks.push(<p key={`line-${index}`}>{renderInlineMarkdown(line)}</p>);
-+  }
-+  return <div className="ai-markdown-content">{blocks}</div>;
-+}
-+
-+// Map prompt intent to the visible run trace and demo approval-gated operations.
-+function getAgentSteps(prompt) {
-+  const text = prompt.toLowerCase();
-+  const tools = /deploy|deployment|publish|provision|delete|remove|execute|run migration|finalize release/.test(text)
-+    ? [{ name: 'execute_release_operation', detail: 'Performing a release operation with external impact', requiresApproval: true }]
-+    : /version|foundation|drift|mismatch|compare|revert|rollback|roll back/.test(text)
-+    ? [{ name: 'compare_release_versions', detail: 'Comparing repository versions with the Foundation baseline' }]
-+    : /approval|change order|cab/.test(text)
-+      ? [{ name: 'list_pending_change_orders', detail: 'Checking approvals and linked repository exceptions' }]
-+      : /readiness|ready|block|sign.?off/.test(text)
-+        ? [{ name: 'get_release_readiness', detail: 'Reading checklist status and release metrics' }]
-+        : [{ name: 'get_release_overview', detail: 'Loading release metrics and repository status' }];
-+  return [
-+    { label: 'Understand request', detail: 'Interpreting your release question' },
-+    { label: 'Plan analysis', detail: 'Selecting the relevant dashboard data' },
-+    ...tools.map((tool) => ({ label: 'Use dashboard tool', ...tool })),
-+    { label: 'Synthesize findings', detail: 'Preparing a concise release summary' },
-+  ];
-+}
-+
-+// Summarize the interpreted action and target before showing the demo approval decision.
-+function describeApprovalOperation(question, repositories, releaseName) {
-+  const normalized = question.toLowerCase();
-+  const repo = repositories.find((item) => normalized.includes(item.name.toLowerCase()));
-+  const action = /deploy|deployment/.test(normalized) ? 'Deploy release' : /publish/.test(normalized) ? 'Publish release'
-+    : /migration/.test(normalized) ? 'Run migration' : /delete|remove/.test(normalized) ? 'Remove resource'
-+      : /provision/.test(normalized) ? 'Provision resource' : /finalize/.test(normalized) ? 'Finalize release'
-+        : 'Run requested operation';
-+  const environment = /production|prod\b/.test(normalized) ? 'Production'
-+    : /non.?prod|staging|test/.test(normalized) ? 'Non-production' : null;
-+  return {
-+    action,
-+    target: [repo?.name, environment, !repo && releaseName].filter(Boolean).join(' · ') || 'Release environment',
-+    impact: `Would ${action.toLowerCase()}${repo ? ` for ${repo.name}` : ` for ${releaseName}`}${environment ? ` in ${environment}` : ''}.`,
-+  };
-+}
-+
- export default function AIAssistant({ repositories, metrics, readiness, foundationVersion, releaseName, initialPrompt = '', onInitialPromptConsumed, onReview, input, setInput, messages, setMessages, presentation = 'page', onFullScreen, onClose }) {
-   const [thinkingId, setThinkingId] = useState(null);
-+  const [pendingApproval, setPendingApproval] = useState(null);
-+  const [handoffDraft, setHandoffDraft] = useState(null);
+@@ -198,6 +522,13 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
    const [selectedSlashIndex, setSelectedSlashIndex] = useState(0);
    const [isSlashDismissed, setIsSlashDismissed] = useState(false);
    const [isInputFocused, setIsInputFocused] = useState(false);
-+  const [, setRunClock] = useState(0);
++  const [releasePlannerStep, setReleasePlannerStep] = useState(null);
++  const [releasePlan, setReleasePlan] = useState({ ...emptyReleasePlan, selectedRepositories: [] });
++  const [revertPlannerStep, setRevertPlannerStep] = useState(null);
++  const [activePlanner, setActivePlanner] = useState(null);
++  const [revertPlan, setRevertPlan] = useState({ ...emptyRevertPlan, selectedRepositories: [], targetVersions: {} });
++  const [revertRunStatus, setRevertRunStatus] = useState('idle');
++  const [revertRunStage, setRevertRunStage] = useState(0);
+   const [, setRunClock] = useState(0);
    const thinkingTimer = useRef(null);
    const messageListRef = useRef(null);
-   const inputRef = useRef(null);
-@@ -93,29 +209,78 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
-     list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
-   }, [messages]);
+@@ -217,6 +548,19 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
+     return () => window.clearInterval(timer);
+   }, [thinkingId]);
  
 +  useEffect(() => {
-+    if (!thinkingId) return undefined;
-+    const timer = window.setInterval(() => {
-+      setRunClock((tick) => tick + 1);
-+    }, 100);
++    if (revertPlannerStep !== 3 || revertRunStatus !== 'running') return undefined;
++    const timer = window.setInterval(() => setRevertRunStage((stage) => {
++      if (stage >= 2) {
++        window.clearInterval(timer);
++        setRevertRunStatus('awaiting-approval');
++        return 3;
++      }
++      return stage + 1;
++    }), 900);
 +    return () => window.clearInterval(timer);
-+  }, [thinkingId]);
++  }, [revertPlannerStep, revertRunStatus]);
 +
    useEffect(() => {
      if (!initialPrompt) return;
--    const answer = analyzePrompt(initialPrompt, repositories, metrics, readiness, foundationVersion);
-+    const answer = analyzePrompt(initialPrompt, repositories, metrics, readiness, foundationVersion, releaseName);
-     setMessages((current) => current.some((message) => message.question === initialPrompt)
-       ? current
-       : [...current, { question: initialPrompt, answer }]);
+     const answer = analyzePrompt(initialPrompt, repositories, metrics, readiness, foundationVersion, releaseName);
+@@ -226,13 +570,14 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
      onInitialPromptConsumed?.();
--  }, [initialPrompt, repositories, metrics, readiness, foundationVersion, onInitialPromptConsumed]);
-+  }, [initialPrompt, repositories, metrics, readiness, foundationVersion, releaseName, onInitialPromptConsumed]);
+   }, [initialPrompt, repositories, metrics, readiness, foundationVersion, releaseName, onInitialPromptConsumed]);
  
-   const enqueueQuestion = (question, allowAfterClear = false) => {
+-  const enqueueQuestion = (question, allowAfterClear = false) => {
++  const enqueueQuestion = (question, allowAfterClear = false, answerOverride = null, runOptions = {}) => {
      if (!question || (!allowAfterClear && (thinkingId !== null || messages.some((message) => message.thinking)))) return;
      const id = `chat-${Date.now()}`;
--    const answer = analyzePrompt(question, repositories, metrics, readiness, foundationVersion);
--    setMessages((current) => [...current, { id, question, answer: null, thinking: true }]);
-+    const answer = analyzePrompt(question, repositories, metrics, readiness, foundationVersion, releaseName);
-+    const steps = getAgentSteps(question);
-+    const approvalStep = steps.find((step) => step.requiresApproval);
-+    setMessages((current) => [...current, { id, question, answer: null, thinking: true, startedAt: Date.now(), steps }]);
+-    const answer = analyzePrompt(question, repositories, metrics, readiness, foundationVersion, releaseName);
+-    const steps = getAgentSteps(question);
++    const answer = answerOverride || analyzePrompt(question, repositories, metrics, readiness, foundationVersion, releaseName);
++    const steps = runOptions.steps || getAgentSteps(question);
++    const durationMs = runOptions.durationMs || 4800;
+     const approvalStep = steps.find((step) => step.requiresApproval);
+-    setMessages((current) => [...current, { id, question, answer: null, thinking: true, startedAt: Date.now(), steps }]);
++    setMessages((current) => [...current, { id, question, answer: null, thinking: true, startedAt: Date.now(), steps, durationMs }]);
      setInput('');
      setThinkingId(id);
      thinkingTimer.current = window.setTimeout(() => {
-+      if (approvalStep) {
-+        setPendingApproval({ id, operation: approvalStep.name, answer, question, preview: describeApprovalOperation(question, repositories, releaseName) });
-+        thinkingTimer.current = null;
-+        return;
-+      }
-       setMessages((current) => current.map((message) => message.id === id
-         ? { ...message, answer, thinking: false }
+@@ -246,7 +591,7 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
          : message));
        setThinkingId(null);
        thinkingTimer.current = null;
--    }, 1050);
-+    }, approvalStep ? 1600 : 4800);
-+  };
-+
-+  // Approval advances or cancels local UI state only; no external operation is connected.
-+  const resolveApproval = (approved) => {
-+    if (!pendingApproval) return;
-+    const { id, answer } = pendingApproval;
-+    setPendingApproval(null);
-+    if (approved) {
-+      thinkingTimer.current = window.setTimeout(() => {
-+        setMessages((current) => current.map((message) => message.id === id
-+          ? { ...message, answer, thinking: false, operationApproved: true }
-+          : message));
-+        setThinkingId(null);
-+        thinkingTimer.current = null;
-+      }, 1800);
-+      return;
-+    }
-+    window.clearTimeout(thinkingTimer.current);
-+    setMessages((current) => current.map((message) => message.id === id
-+      ? { ...message, thinking: false, answer: { title: 'Operation cancelled', summary: 'The requested operation was not started. No changes were made.', points: [] } }
-+      : message));
-+    setThinkingId(null);
-+  };
-+
-+  // Stop clears the active timer and replaces the in-progress state with a stopped response.
-+  const stopGeneration = () => {
-+    if (!thinkingId) return;
-+    window.clearTimeout(thinkingTimer.current);
-+    thinkingTimer.current = null;
-+    setPendingApproval(null);
-+    setMessages((current) => current.map((message) => message.id === thinkingId && message.thinking
-+      ? { ...message, thinking: false, answer: { title: 'Generation stopped', summary: 'The response was stopped before it completed.', points: [], source: `${releaseName} · local assistant run` } }
-+      : message));
-+    setThinkingId(null);
+-    }, approvalStep ? 1600 : 4800);
++    }, approvalStep ? 1600 : durationMs);
    };
  
-   const ask = (prompt) => {
-@@ -125,6 +290,8 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
-     if (clearCommand) {
-       window.clearTimeout(thinkingTimer.current);
-       setThinkingId(null);
-+      setPendingApproval(null);
-+      setHandoffDraft(null);
-       setMessages([]);
-       setInput('');
-       const followUp = clearCommand[1]?.trim();
-@@ -230,25 +397,32 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
+   // Approval advances or cancels local UI state only; no external operation is connected.
+@@ -301,6 +646,101 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
+     enqueueQuestion(question);
+   };
+ 
++  // Start guided planning as a normal chat turn; the planner opens only after the user accepts its intro.
++  const queuePlannerPrompt = (kind, prompt) => {
++    const isRevert = kind === 'revert';
++    setReleasePlan({ ...emptyReleasePlan, selectedRepositories: [] });
++    setReleasePlannerStep(null);
++    setRevertPlannerStep(null);
++    setActivePlanner(null);
++    setRevertPlan({ ...emptyRevertPlan, lastKnownGoodFoundation: foundationVersion, selectedRepositories: [], targetVersions: {} });
++    setRevertRunStatus('idle');
++    setRevertRunStage(0);
++    const answer = {
++      title: 'Before we proceed, a few questions',
++      summary: isRevert
++        ? 'I’ll ask what you want to restore, which versions should change, and what recovery reference to use. Start the guided questions when you’re ready.'
++        : 'I’ll ask whether this is a main or off-cycle release, then gather its scope, baseline, and timing. Start the guided questions when you’re ready.',
++      points: [],
++      source: isRevert ? 'Revert planning · guided questions' : 'Release planning · guided questions',
++      plannerAction: kind,
++    };
++    const steps = [
++      { label: 'Understand request', detail: isRevert ? 'Identifying the recovery path' : 'Identifying the release path' },
++      { label: 'Check context', detail: 'Reviewing the current dashboard snapshot' },
++      { label: 'Prepare questions', detail: 'Setting up the guided flow' },
++    ];
++    enqueueQuestion(prompt, false, answer, { durationMs: 3200, steps });
++  };
++
++  const openPlanner = (kind) => {
++    setActivePlanner(kind);
++    if (kind === 'revert') {
++      setRevertPlan({ ...emptyRevertPlan, lastKnownGoodFoundation: foundationVersion, selectedRepositories: [], targetVersions: {} });
++      setRevertRunStatus('idle');
++      setRevertRunStage(0);
++      setRevertPlannerStep(0);
++    } else {
++      setReleasePlan({ ...emptyReleasePlan, selectedRepositories: [] });
++      setReleasePlannerStep(0);
++    }
++  };
++
++  const selectRevertMode = (mode) => {
++    setRevertPlan({ ...emptyRevertPlan, mode, lastKnownGoodFoundation: foundationVersion, selectedRepositories: [], targetVersions: {} });
++    setRevertPlannerStep(1);
++  };
++  const updateRevertPlan = (field, value) => setRevertPlan((current) => ({ ...current, [field]: value }));
++  const revertChecks = getRevertPlanChecks(revertPlan, repositories, foundationVersion);
++  const revertPlanValid = revertChecks.every((check) => check.valid);
++  const startRevertRun = () => {
++    if (!revertPlanValid) return;
++    // TODO(backend): Revalidate live repository versions, submit the RelCur manifest, and fetch its actual Foundation build before presenting the approval gate.
++    setRevertRunStatus('running');
++    setRevertRunStage(0);
++    setRevertPlannerStep(3);
++  };
++  const resolveRevertRun = (approved) => setRevertRunStatus(approved ? 'approved' : 'declined');
++
++  const updateReleasePlan = (field, value) => {
++    setReleasePlan((current) => ({ ...current, [field]: value }));
++  };
++
++  const selectPlanType = (type) => {
++    setReleasePlan({ ...emptyReleasePlan, type, selectedRepositories: [] });
++    setReleasePlannerStep(1);
++  };
++
++  const selectOffcycleRepository = (name) => {
++    const repository = repositories.find((repo) => repo.name === name);
++    setReleasePlan((current) => ({
++      ...current,
++      repository: name,
++      currentProdVersion: repository?.prodVersion || '',
++      changeOrder: repository?.changeOrder || '',
++    }));
++  };
++
++  const planChecks = getReleasePlanChecks(releasePlan, repositories);
++  const releasePlanValid = planChecks.length > 0 && planChecks.every((check) => check.valid);
++
++  const submitReleasePlan = () => {
++    if (!releasePlanValid) return;
++    const answer = createReleasePlanAnswer(releasePlan, repositories, foundationVersion);
++    const mainReleaseBaselines = repositories
++      .filter((repo) => releasePlan.selectedRepositories.includes(repo.name))
++      .map((repo) => `${repo.name}: PROD ${repo.prodVersion}; non-PROD ${repo.nonProdVersion}; status ${repo.status}`)
++      .join(' | ');
++    const question = releasePlan.type === 'main'
++      ? `Plan main release ${releasePlan.releaseName} for ${releasePlan.plannedDate}. Foundation baseline: ${foundationVersion}. Selected repository snapshots: ${mainReleaseBaselines}.`
++      : `Plan off-cycle release for ${releasePlan.repository}. Current PROD ${releasePlan.currentProdVersion}; proposed target ${releasePlan.targetVersion}. Difference: PROD ${releasePlan.currentProdVersion} → target ${releasePlan.targetVersion}. Reason: ${releasePlan.reason.trim()}. Change order: ${releasePlan.changeOrder.trim()}.`;
++
++    // TODO(backend): Re-read live PROD versions, repository health, and approval/change-order state before forwarding this validated brief to the approved LLM service.
++    setReleasePlannerStep(null);
++    setActivePlanner(null);
++    enqueueQuestion(question, false, answer);
++  };
++
+   const handleInsertSlash = (command) => {
+     setInput(`${command} `);
+     setIsSlashDismissed(true);
+@@ -380,24 +820,36 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
+       </div>
+ 
+       <div className="ai-conversation-card">
+-        {messages.length === 0 ? (
++        {activePlanner === 'release' ? (
++          <div className="ai-empty-state ai-empty-state--planner">
++            <ReleasePlanner step={releasePlannerStep ?? 0} plan={releasePlan} repositories={repositories} checks={planChecks} planIsValid={releasePlanValid}
++              setStep={(step) => { setReleasePlannerStep(step); if (step === null) setActivePlanner(null); }} updatePlan={updateReleasePlan}
++              selectType={selectPlanType} selectRepository={selectOffcycleRepository} submit={submitReleasePlan} />
++          </div>
++        ) : activePlanner === 'revert' ? (
++          <div className="ai-empty-state ai-empty-state--planner">
++            <RevertPlanner step={revertPlannerStep ?? 0} plan={revertPlan} repositories={repositories} checks={revertChecks} planIsValid={revertPlanValid}
++              updatePlan={updateRevertPlan} setStep={(step) => { setRevertPlannerStep(step); if (step === null) setActivePlanner(null); }} selectMode={selectRevertMode} startRun={startRevertRun}
++              runStatus={revertRunStatus} runStage={revertRunStage} resolveRun={resolveRevertRun} foundationVersion={foundationVersion} />
++          </div>
++        ) : messages.length === 0 ? (
+           <div className="ai-empty-state">
+             <div className="ai-empty-icon"><Bot size={22} /></div>
+             <h3>What would you like to know?</h3>
+-            <p>Explore readiness, version differences, and release approvals.</p>
++            <p>Choose a starting point. Each analysis uses the current release data.</p>
+             <div className="ai-prompt-grid">
+-              {suggestedPrompts.map(({ icon: Icon, label, kind }) => (
+-                <button key={kind} type="button" onClick={() => ask(label)}>
+-                  <Icon size={16} />
+-                  <span>{label}</span>
+-                  <ArrowUpRight size={14} />
++              {suggestedPrompts.map(({ icon: Icon, label, description, prompt, kind }) => (
++                <button key={kind} type="button" onClick={() => kind === 'planner' ? queuePlannerPrompt('release', prompt) : kind === 'rollback' ? queuePlannerPrompt('revert', prompt) : ask(prompt)}>
++                  <span className="ai-prompt-icon"><Icon size={17} /></span>
++                  <span className="ai-prompt-copy"><strong>{label}</strong><small>{description}</small></span>
++                  <ArrowUpRight size={14} className="ai-prompt-arrow" />
+                 </button>
+               ))}
+             </div>
            </div>
          ) : (
            <div className="ai-message-list" aria-live="polite" ref={messageListRef}>
--            {messages.map(({ id, question, answer, thinking }, index) => (
-+            {messages.map(({ id, question, answer, thinking, startedAt, steps = [] }, index) => (
+-            {messages.map(({ id, question, answer, thinking, startedAt, steps = [] }, index) => (
++            {messages.map(({ id, question, answer, thinking, startedAt, durationMs, steps = [] }, index) => (
                <article className={`ai-exchange ${index === messages.length - 1 ? 'ai-exchange--drop-in' : ''}`} key={id || `${index}-${question}`}>
                  <div className="ai-user-question"><span>You</span><p>{question}</p></div>
                  {thinking || !answer ? (
--                  <div className="ai-answer ai-answer--thinking" role="status" aria-label="Thinking through release data">
-+                  <div className="ai-answer ai-answer--thinking" role="status" aria-label="Agent is working on your request">
-                     <div className="ai-answer-mark"><Sparkles size={14} /></div>
+@@ -406,7 +858,7 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
                      <div className="ai-thinking-content">
--                      <p className="ai-thinking-text">Thinking through release data<span className="ai-thinking-dots" aria-hidden="true"><i /><i /><i /></span></p>
--                      <div className="ai-answer-skeleton" aria-hidden="true">
--                        <span className="ai-skeleton-line ai-skeleton-title" />
--                        <span className="ai-skeleton-line ai-skeleton-long" />
--                        <span className="ai-skeleton-line ai-skeleton-medium" />
--                        <span className="ai-skeleton-line ai-skeleton-short" />
--                        <div className="ai-skeleton-points">
--                          <span><i className="ai-skeleton-dot" /><i className="ai-skeleton-line" /></span>
--                          <span><i className="ai-skeleton-dot" /><i className="ai-skeleton-line" /></span>
--                          <span><i className="ai-skeleton-dot" /><i className="ai-skeleton-line" /></span>
--                        </div>
--                      </div>
-+                      {(() => {
-+                        const age = (Date.now() - (startedAt || Date.now())) / 1000;
-+                        const activeIndex = Math.min(steps.length - 1, Math.floor(age / (4.8 / steps.length)));
-+                        const activeStep = steps[activeIndex] || steps[0];
-+                        const phaseLabel = activeStep?.name
-+                          ? `Calling ${activeStep.name}`
-+                          : activeIndex === 0 ? 'Understanding your request'
-+                            : activeIndex === 1 ? 'Thinking through release data'
-+                              : 'Preparing the response';
-+                        return <div className="ai-run-activity">
-+                          <span className="ai-live-indicator" />
-+                          <span className="ai-activity-prefix">{activeStep?.name ? <Wrench size={13} /> : <Sparkles size={13} />}</span>
-+                          <span className="ai-activity-label" key={`${id}-${activeIndex}`}>
-+                            <span className="ai-activity-roll">{phaseLabel}</span>
-+                            <span className="ai-activity-detail">{activeStep?.name ? activeStep.name : activeStep?.detail}</span>
-+                          </span>
-+                          <span className="ai-run-timer"><Timer size={12} /> {((Date.now() - (startedAt || Date.now())) / 1000).toFixed(1)}s</span>
-+                        </div>;
-+                      })()}
-                     </div>
-                   </div>
-                 ) : (
-@@ -256,11 +430,23 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
-                     <div className="ai-answer-mark"><Sparkles size={14} /></div>
-                     <div className="ai-answer-body">
-                       <h3>{answer.title}</h3>
--                      <p>{answer.summary}</p>
--                      <ul>{answer.points.map((point) => <li key={point}>{point}</li>)}</ul>
-+                      {/* Use the Markdown renderer for structured answers; keep standard answers concise. */}
-+                      {answer.markdown ? (
-+                        <>
-+                          <p>{answer.summary}</p>
-+                          <MarkdownContent content={answer.markdown} />
-+                        </>
-+                      ) : (
-+                        <>
-+                          <p>{answer.summary}</p>
-+                          <ul>{answer.points.map((point) => <li key={point}>{point}</li>)}</ul>
-+                        </>
-+                      )}
-+                      <p className="ai-answer-source"><span />Source · {answer.source || `${releaseName} dashboard data`}</p>
-+                      {answer.handoff && <button className="ai-handoff-link" type="button" onClick={() => setHandoffDraft({ question, answer, conversation: messages })}><ShieldCheck size={14} /> Prepare human handoff <ArrowUpRight size={13} /></button>}
+                       {(() => {
+                         const age = (Date.now() - (startedAt || Date.now())) / 1000;
+-                        const activeIndex = Math.min(steps.length - 1, Math.floor(age / (4.8 / steps.length)));
++                        const activeIndex = Math.min(steps.length - 1, Math.floor(age / ((durationMs || 4800) / steps.length)));
+                         const activeStep = steps[activeIndex] || steps[0];
+                         const phaseLabel = activeStep?.name
+                           ? `Calling ${activeStep.name}`
+@@ -444,6 +896,7 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
+                       )}
+                       <p className="ai-answer-source"><span />Source · {answer.source || `${releaseName} dashboard data`}</p>
+                       {answer.handoff && <button className="ai-handoff-link" type="button" onClick={() => setHandoffDraft({ question, answer, conversation: messages })}><ShieldCheck size={14} /> Prepare human handoff <ArrowUpRight size={13} /></button>}
++                      {answer.plannerAction && <button className="ai-planner-start-link" type="button" onClick={() => openPlanner(answer.plannerAction)}>{answer.plannerAction === 'revert' ? <RotateCcw size={14} /> : <CalendarDays size={14} />} {answer.plannerAction === 'revert' ? 'Start revert questions' : 'Start release questions'} <ArrowUpRight size={13} /></button>}
                        {answer.repo && (
                          <button className="ai-review-link" type="button" onClick={() => onReview?.(answer.repo)}>
--                          Review {answer.repo.name}<ArrowUpRight size={14} />
-+                          {answer.repo.status === 'Match' || answer.repo.status === 'On Track' ? 'Open' : 'Review'} {answer.repo.name}<ArrowUpRight size={14} />
-                         </button>
-                       )}
-                     </div>
-@@ -271,6 +457,30 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
-           </div>
-         )}
- 
-+        {/* Local human handoff draft carries conversation and release context without sending a ticket. */}
-+        {handoffDraft && (
-+          <div className="ai-handoff-draft" role="region" aria-label="Human handoff draft">
-+            <div className="ai-handoff-draft-heading"><span><ShieldCheck size={14} /> Release Support handoff</span><button type="button" onClick={() => setHandoffDraft(null)} aria-label="Close handoff draft"><X size={14} /></button></div>
-+            <p><strong>Conversation:</strong> {handoffDraft.conversation.length + 1} messages · “{handoffDraft.question}” · <strong>Release:</strong> {releaseName}</p>
-+            <div className="ai-handoff-versions" aria-label="Attached revert version details">{handoffDraft.answer.revertRows?.map((row) => <span key={row.name}>{row.name} <code>{row.current}</code> → <code>{row.target}</code></span>)}</div>
-+            <small>Demo draft only. No ticket or message will be sent.</small>
-+            <button className="ai-handoff-prepare" type="button" onClick={() => {
-+              setMessages((current) => [...current, { id: `handoff-${Date.now()}`, question: 'Human handoff prepared', answer: { title: 'Handoff draft ready', summary: `Release Support context is prepared for ${releaseName}, including the original question and repository version plan. This demo does not send the handoff.`, points: [], source: `${releaseName} · local demo draft` } }]);
-+              setHandoffDraft(null);
-+            }}>Prepare handoff draft</button>
-+          </div>
-+        )}
-+        {pendingApproval && (
-+          <div className="ai-hitl-prompt" role="alertdialog" aria-label="Approval required">
-+            <div className="ai-hitl-topline"><span className="ai-hitl-mark"><ShieldCheck size={15} /></span><strong>Approval required</strong><span className="ai-hitl-demo-tag">DEMO</span></div>
-+            <div className="ai-hitl-plan"><span><small>Proposed action</small><strong>{pendingApproval.preview.impact}</strong></span><span><small>Target</small><strong>{pendingApproval.preview.target}</strong></span></div>
-+            <p className="ai-hitl-demo-note">Demo gate only · approval simulates this step; no external API or release changes.</p>
-+            <div className="ai-hitl-actions">
-+              <button type="button" className="ai-hitl-cancel" onClick={() => resolveApproval(false)}>Decline</button>
-+              <button type="button" className="ai-hitl-approve" onClick={() => resolveApproval(true)}>Approve demo action</button>
-+            </div>
-+          </div>
-+        )}
-         <form className="ai-composer" onSubmit={(event) => { event.preventDefault(); ask(input); }}>
-           {showSlashSuggestions && (
-             <div className="ai-slash-suggestions" role="listbox" aria-label="Available slash commands">
-@@ -334,7 +544,12 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
+                           {answer.repo.status === 'Match' || answer.repo.status === 'On Track' ? 'Open' : 'Review'} {answer.repo.name}<ArrowUpRight size={14} />
+@@ -540,7 +993,7 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
+               onFocus={() => setIsInputFocused(true)}
+               onBlur={() => window.setTimeout(() => setIsInputFocused(false), 150)}
+               onKeyDown={handleInputKeyDown}
+-              placeholder="Ask about readiness, version drift, or approvals… (type / for commands)"
++              placeholder="Ask about a release or type /"
                aria-label="Ask the release analyst"
              />
            </span>
--          <button type="submit" disabled={!input.trim() || (isThinking && !hasClearCommand)} aria-label="Send question"><Send size={16} /></button>
-+          {/* Swap the composer send action for Stop whenever a response run is active. */}
-+          {isThinking ? (
-+            <button className="ai-stop-button" type="button" onClick={stopGeneration} aria-label="Stop generating" title="Stop generating"><Square size={13} fill="currentColor" /></button>
-+          ) : (
-+            <button type="submit" disabled={!input.trim()} aria-label="Send question" title="Send question"><Send size={16} /></button>
-+          )}
+@@ -551,7 +1004,7 @@ export default function AIAssistant({ repositories, metrics, readiness, foundati
+             <button type="submit" disabled={!input.trim()} aria-label="Send question" title="Send question"><Send size={16} /></button>
+           )}
          </form>
-         <p className="ai-preview-note"><CheckCircle2 size={12} /> Preview analysis uses bundled dashboard data. Connect an approved AI service to enable model-generated responses.</p>
+-        <p className="ai-preview-note"><CheckCircle2 size={12} /> Preview analysis uses bundled dashboard data. Connect an approved AI service to enable model-generated responses.</p>
++        <p className="ai-preview-note"><CheckCircle2 size={12} /> Preview uses bundled dashboard data. Connect an approved AI service for generated responses.</p>
        </div>
-diff --git a/src/components/Sidebar.jsx b/src/components/Sidebar.jsx
-index 50acc5c..8fcdb8c 100644
---- a/src/components/Sidebar.jsx
-+++ b/src/components/Sidebar.jsx
-@@ -1,4 +1,4 @@
--import React, { useState } from 'react';
-+import React, { useRef, useState } from 'react';
- import allstateHandsLogo from '../assets/allstate-hands-transparent.png';
- import { 
-   LayoutDashboard, 
-@@ -17,6 +17,24 @@ import {
- 
- export default function Sidebar({ activeNav = 'Dashboard', onNavClick, onAskAI, aiMode = false, onBack, onFullScreen, assistant }) {
-   const [isCollapsed, setIsCollapsed] = useState(false);
-+  const [assistantWidth, setAssistantWidth] = useState(360);
-+  const [isResizing, setIsResizing] = useState(false);
-+  const dragStart = useRef(null);
-+  // Keep the drag-resizable assistant panel within the visible viewport.
-+  const minAssistantWidth = () => Math.min(340, Math.max(280, window.innerWidth - 16));
-+  const maxAssistantWidth = () => Math.max(minAssistantWidth(), Math.min(1100, window.innerWidth * 0.92));
-+  const renderedAssistantWidth = Math.min(assistantWidth, maxAssistantWidth());
-+  const resizeAssistant = (event) => {
-+    if (!dragStart.current) return;
-+    const nextWidth = Math.min(maxAssistantWidth(), Math.max(minAssistantWidth(), dragStart.current.width + event.clientX - dragStart.current.x));
-+    setAssistantWidth(nextWidth);
-+  };
-+  const stopResizing = (event) => {
-+    if (!dragStart.current) return;
-+    dragStart.current = null;
-+    setIsResizing(false);
-+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
-+  };
-   const navItems = [
-     { name: 'Dashboard', icon: LayoutDashboard },
-     { name: 'Repositories', icon: Layers },
-@@ -29,7 +47,7 @@ export default function Sidebar({ activeNav = 'Dashboard', onNavClick, onAskAI,
-   ];
- 
-   return (
--    <aside className={`sidebar ${aiMode ? 'sidebar-ai-mode' : ''} ${isCollapsed && !aiMode ? 'sidebar-collapsed' : ''}`}>
-+    <aside className={`sidebar ${aiMode ? 'sidebar-ai-mode' : ''} ${isResizing ? 'sidebar-ai-resizing' : ''} ${isCollapsed && !aiMode ? 'sidebar-collapsed' : ''}`} style={aiMode ? { width: `${renderedAssistantWidth}px`, minWidth: `${renderedAssistantWidth}px` } : undefined}>
-       {aiMode ? (
-         <div className="sidebar-ai-shell">
-           <header className="sidebar-ai-header">
-@@ -43,6 +61,34 @@ export default function Sidebar({ activeNav = 'Dashboard', onNavClick, onAskAI,
-             </button>
-           </header>
-           <div className="sidebar-ai-content">{assistant}</div>
-+          {/* Invisible edge hit area supports pointer dragging, double-click expansion, and keyboard resizing. */}
-+          <div
-+            className="sidebar-ai-resize-handle"
-+            role="separator"
-+            aria-label="Resize AI assistant panel"
-+            aria-orientation="vertical"
-+            aria-valuemin={Math.round(minAssistantWidth())}
-+            aria-valuemax={Math.round(maxAssistantWidth())}
-+            aria-valuenow={Math.round(renderedAssistantWidth)}
-+            tabIndex={0}
-+            title=""
-+            onPointerDown={(event) => {
-+              dragStart.current = { x: event.clientX, width: renderedAssistantWidth };
-+              setIsResizing(true);
-+              event.currentTarget.setPointerCapture(event.pointerId);
-+            }}
-+            onPointerMove={resizeAssistant}
-+            onPointerUp={stopResizing}
-+            onPointerCancel={stopResizing}
-+            onDoubleClick={() => setAssistantWidth(maxAssistantWidth())}
-+            onKeyDown={(event) => {
-+              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-+                event.preventDefault();
-+                setAssistantWidth((width) => Math.min(maxAssistantWidth(), Math.max(minAssistantWidth(), width + (event.key === 'ArrowRight' ? 32 : -32))));
-+              } else if (event.key === 'Home') setAssistantWidth(Math.min(360, maxAssistantWidth()));
-+              else if (event.key === 'End') setAssistantWidth(maxAssistantWidth());
-+            }}
-+          />
-         </div>
-       ) : (
-         <>
+     </section>
+   );
 diff --git a/src/index.css b/src/index.css
-index 95a93d1..63f8753 100644
+index 63f8753..afd1e66 100644
 --- a/src/index.css
 +++ b/src/index.css
-@@ -277,6 +277,12 @@ a {
-     linear-gradient(180deg, #0c3472 0%, #082957 58%, #061d40 100%);
-   box-shadow: 14px 0 38px rgba(3, 15, 36, 0.24), inset -1px 0 rgba(125, 211, 252, 0.18);
- }
-+/* Accessible, visually quiet edge target for resizing the open assistant panel. */
-+.sidebar-ai-mode { position: relative; transition: width 180ms ease, min-width 180ms ease, padding 360ms ease, box-shadow 360ms ease; }
-+.sidebar-ai-mode.sidebar-ai-resizing { transition: none; user-select: none; }
-+.sidebar-ai-mode.sidebar-ai-resizing * { user-select: none; }
-+.sidebar-ai-resize-handle { position: absolute; z-index: 160; top: 0; right: 0; bottom: 0; display: grid; width: 8px; place-items: center; cursor: col-resize; touch-action: none; outline: none; }
-+.sidebar-ai-resize-handle:focus-visible { outline: 2px solid rgba(145,196,242,.7); outline-offset: -2px; }
- 
- .sidebar-ai-shell {
-   display: flex;
-@@ -466,6 +472,143 @@ a {
-   text-align: center;
+@@ -456,7 +456,7 @@ a {
  }
  
-+/* Refined Allstate blue treatment for the assistant sidebar */
-+.sidebar.sidebar-ai-mode {
-+  background: linear-gradient(180deg, #0b3c78 0%, #08366d 48%, #072f60 100%);
-+  box-shadow: 10px 0 30px rgba(8, 31, 65, .16), inset -1px 0 rgba(255,255,255,.1);
+ .ai-workspace--sidebar .ai-prompt-grid {
+-  grid-template-columns: minmax(0, 1fr);
++  grid-template-columns: repeat(2, minmax(0, 1fr));
+   width: 100%;
+ }
+ 
+@@ -526,14 +526,16 @@ a {
+ .sidebar-ai-mode .ai-workspace--sidebar .ai-answer-source { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; color: #8fa8c1; font-size: 9px; }
+ .sidebar-ai-mode .ai-workspace--sidebar .ai-answer-source span { width: 5px; height: 5px; flex: 0 0 auto; border-radius: 50%; background: #68bd99; }
+ .sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button {
+-  border-color: rgba(219,234,254,.14);
++  border-color: rgba(191,219,254,.28);
+   border-radius: 10px;
+-  background: rgba(14,54,101,.55);
++  background: linear-gradient(145deg, rgba(96,165,250,.18), rgba(37,99,235,.08) 54%, rgba(8,36,74,.28));
+   color: #e3edf8;
+-  box-shadow: none;
++  box-shadow: 0 8px 18px rgba(2,18,41,.12), inset 0 1px rgba(255,255,255,.12);
++  -webkit-backdrop-filter: blur(14px);
++  backdrop-filter: blur(14px);
+ }
+-.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button:hover { border-color: rgba(147,197,253,.3); background: rgba(23,70,121,.7); }
+-.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button > svg:first-child { color: #9ecfff; }
++.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button:hover { border-color: rgba(147,197,253,.55); background: linear-gradient(145deg, rgba(96,165,250,.28), rgba(37,99,235,.15) 54%, rgba(8,36,74,.2)); }
++.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-icon { color: #9ecfff; }
+ .sidebar-ai-mode .ai-workspace--sidebar .ai-run-activity {
+   border-color: rgba(219,234,254,.16);
+   border-radius: 10px;
+@@ -1401,14 +1403,14 @@ a {
+ }
+ 
+ .ai-workspace--popup .ai-prompt-grid {
+-  grid-template-columns: minmax(0, 1fr);
++  grid-template-columns: repeat(2, minmax(0, 1fr));
+   gap: 6px;
+   width: 100%;
+ }
+ 
+ .ai-workspace--popup .ai-prompt-grid button {
+-  min-height: 38px;
+-  padding: 7px 9px;
++  min-height: 76px;
++  padding: 8px;
+ }
+ 
+ .ai-workspace--popup .ai-composer {
+@@ -1561,9 +1563,9 @@ a {
+   min-height: 0;
+   overflow: hidden;
+   background:
+-    radial-gradient(ellipse at 50% -8%, rgba(37, 99, 235, 0.17), transparent 42%),
+-    radial-gradient(ellipse at 100% 100%, rgba(34, 211, 238, 0.055), transparent 38%),
+-    linear-gradient(145deg, #0b1931, #071326 68%, #0b1a33);
++    radial-gradient(ellipse at 50% -12%, rgba(34, 211, 238, 0.48), transparent 46%),
++    radial-gradient(ellipse at 52% 34%, rgba(37, 99, 235, 0.5), transparent 64%),
++    linear-gradient(180deg, #176d98 0%, #1552a0 28%, #143c91 48%, #0b1d3d 78%, #071326 100%);
+   border: 1px solid rgba(96, 165, 250, 0.32);
+   border-radius: var(--radius-lg);
+   box-shadow: 0 18px 44px rgba(8, 24, 50, 0.2), 0 0 34px rgba(37, 99, 235, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.055);
+@@ -1582,6 +1584,8 @@ a {
+ .ai-empty-icon {
+   width: 48px;
+   height: 48px;
++  align-self: center;
++  place-items: center;
+   margin-bottom: 12px;
+ }
+ 
+@@ -1597,44 +1601,424 @@ a {
+   font-size: 11px;
+ }
+ 
++.ai-empty-state--planner {
++  align-items: stretch;
++  justify-content: flex-start;
++  overflow-y: auto;
++  padding: 18px;
++  text-align: left;
 +}
-+.sidebar-ai-mode .sidebar-ai-header { border-color: rgba(219,234,254,.16); }
-+.sidebar-ai-mode .sidebar-ai-back,
-+.sidebar-ai-mode .sidebar-ai-fullscreen {
-+  border-color: rgba(219,234,254,.18);
-+  background: rgba(5,35,76,.34);
-+  color: #eff6ff;
-+  box-shadow: none;
++
++.ai-planner {
++  width: min(620px, 100%);
++  margin: auto;
++  color: #e5efff;
 +}
-+.sidebar-ai-mode .sidebar-ai-back:hover,
-+.sidebar-ai-mode .sidebar-ai-fullscreen:hover { border-color: rgba(219,234,254,.34); background: rgba(21,67,122,.65); }
-+.sidebar-ai-mode .sidebar-ai-brand svg { color: #a9d7ff; filter: none; }
-+.sidebar-ai-mode .sidebar-ai-content::after {
++
++.ai-planner-topline {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 12px;
++  color: #91cfff;
++  font-size: 9px;
++  font-weight: 800;
++  letter-spacing: .09em;
++}
++
++.ai-planner-progress {
++  height: 4px;
++  margin: 8px 0 16px;
++  overflow: hidden;
++  border-radius: 999px;
++  background: rgba(191, 219, 254, .12);
++}
++
++.ai-planner-progress span {
 +  display: block;
-+  background: linear-gradient(105deg, transparent 18%, rgba(96,165,250,.035) 37%, rgba(219,238,255,.3) 49%, rgba(125,177,224,.12) 56%, transparent 78%);
-+  filter: blur(9px);
-+  animation: sidebar-ai-gradient-wave 1050ms cubic-bezier(.2,.75,.22,1) 100ms both;
++  height: 100%;
++  border-radius: inherit;
++  background: linear-gradient(90deg, #38bdf8, #60a5fa, #818cf8);
++  box-shadow: 0 0 12px rgba(56, 189, 248, .48);
++  transition: width 220ms ease;
 +}
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-conversation-card {
-+  border: 1px solid rgba(219,234,254,.14);
-+  border-radius: 14px;
-+  background: linear-gradient(155deg, rgba(7,35,73,.72), rgba(5,29,61,.84));
-+  box-shadow: inset 0 1px rgba(255,255,255,.045), 0 8px 24px rgba(2,19,43,.14);
++
++.ai-planner h3 {
++  margin: 0 0 5px;
++  color: #f8fbff;
++  font-size: 17px;
++  letter-spacing: -.02em;
 +}
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-message-list { padding: 20px 18px; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-exchange + .ai-exchange { border-color: rgba(219,234,254,.12); }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-user-question { margin-bottom: 18px; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-user-question p {
-+  border-color: rgba(147,197,253,.2);
-+  border-radius: 13px 5px 13px 13px;
-+  background: linear-gradient(135deg, #164d89, #123e75);
-+  color: #f5f9ff;
++
++.ai-planner-intro {
++  margin: 0 0 16px;
++  color: #b1c5df;
++  font-size: 11px;
++  line-height: 1.55;
 +}
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-user-question span { background: rgba(147,197,253,.13); color: #c7ddf5; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-answer-mark,
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-empty-icon {
-+  border-color: rgba(147,197,253,.22);
++
++.ai-planner h4 {
++  margin: 0 0 10px;
++  color: #eaf4ff;
++  font-size: 12px;
++}
++
++.ai-plan-type-options {
++  display: grid;
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: 10px;
++}
++
++.ai-plan-type-options button {
++  display: grid;
++  grid-template-columns: 36px minmax(0, 1fr) 14px;
++  align-items: center;
++  gap: 10px;
++  min-width: 0;
++  padding: 13px 11px;
++  border: 1px solid rgba(191, 219, 254, .24);
++  border-radius: 11px;
++  background: linear-gradient(145deg, rgba(96, 165, 250, .14), rgba(15, 35, 68, .48));
++  color: #e7f1ff;
++  text-align: left;
++  cursor: pointer;
++  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
++}
++
++.ai-plan-type-options button:hover,
++.ai-plan-type-options button:focus-visible {
++  transform: translateY(-1px);
++  border-color: rgba(125, 211, 252, .64);
++  background: linear-gradient(145deg, rgba(96, 165, 250, .24), rgba(15, 35, 68, .58));
++}
++
++.ai-plan-type-options button:focus-visible,
++.ai-planner button:focus-visible,
++.ai-planner input:focus-visible,
++.ai-planner select:focus-visible,
++.ai-planner textarea:focus-visible {
++  outline: 2px solid #7dd3fc;
++  outline-offset: 2px;
++}
++
++.ai-plan-option-icon {
++  display: grid;
++  width: 36px;
++  height: 36px;
++  place-items: center;
++  border: 1px solid rgba(125, 211, 252, .28);
 +  border-radius: 9px;
-+  background: #123e73;
-+  color: #c5e3ff;
-+  box-shadow: inset 0 1px rgba(255,255,255,.07);
++  background: rgba(37, 99, 235, .18);
++  color: #8edcff;
 +}
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-answer-mark svg { filter: none; animation: none; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-answer-body { color: #c6d5e7; font-size: 12px; line-height: 1.65; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-answer-body h3 { margin-bottom: 7px; color: #f4f8fd; font-size: 15px; letter-spacing: -.01em; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-answer-body ul { gap: 6px; margin-top: 12px; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-review-link { color: #9ed1ff; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-answer-source { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; color: #8fa8c1; font-size: 9px; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-answer-source span { width: 5px; height: 5px; flex: 0 0 auto; border-radius: 50%; background: #68bd99; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button {
-+  border-color: rgba(219,234,254,.14);
-+  border-radius: 10px;
-+  background: rgba(14,54,101,.55);
-+  color: #e3edf8;
-+  box-shadow: none;
++
++.ai-plan-type-options button > span:nth-child(2) {
++  display: grid;
++  gap: 4px;
++  min-width: 0;
 +}
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button:hover { border-color: rgba(147,197,253,.3); background: rgba(23,70,121,.7); }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button > svg:first-child { color: #9ecfff; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-run-activity {
-+  border-color: rgba(219,234,254,.16);
-+  border-radius: 10px;
-+  background: rgba(12,47,88,.82);
-+  box-shadow: inset 0 1px rgba(255,255,255,.05), 0 4px 12px rgba(2,18,41,.14);
++
++.ai-plan-type-options strong {
++  font-size: 11px;
 +}
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-activity-detail,
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-run-timer { color: #a9bdd3; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-composer {
-+  border-color: rgba(219,234,254,.2);
-+  border-radius: 12px;
-+  background: rgba(5,28,59,.88);
-+  box-shadow: inset 0 1px rgba(255,255,255,.045);
++
++.ai-plan-type-options small {
++  color: #a9bfd9;
++  font-size: 9px;
++  line-height: 1.4;
 +}
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-composer:focus-within { border-color: rgba(147,197,253,.62); box-shadow: 0 0 0 3px rgba(96,165,250,.12); }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-composer input { color: #f2f7fd; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-composer input::placeholder { color: #9aafc7; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-composer button {
-+  border-color: rgba(147,197,253,.28);
++
++.ai-plan-type-options button > svg:last-child { color: #8aa5c8; }
++
++.ai-planner-cancel,
++.ai-planner-back {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: 6px;
++  border: 0;
++  background: transparent;
++  color: #a7c2e2;
++  font-size: 10px;
++  cursor: pointer;
++}
++
++.ai-planner-cancel { margin-top: 14px; }
++.ai-planner-back { margin: 0 0 10px; }
++.ai-planner-cancel:hover,
++.ai-planner-back:hover { color: #e0f2fe; }
++
++.ai-planner-fields {
++  display: grid;
++  gap: 11px;
++}
++
++.ai-planner-field {
++  display: grid;
++  gap: 6px;
++  color: #e3eefc;
++  font-size: 10px;
++  font-weight: 700;
++}
++
++.ai-planner-field > span,
++.ai-planner-repositories legend span {
++  margin-left: 4px;
++  color: #92aac8;
++  font-size: 9px;
++  font-weight: 500;
++}
++
++.ai-planner-field input,
++.ai-planner-field select,
++.ai-planner-field textarea {
++  width: 100%;
++  min-width: 0;
++  padding: 9px 10px;
++  border: 1px solid rgba(148, 183, 224, .28);
++  border-radius: 8px;
++  background: rgba(5, 19, 39, .58);
++  color: #f2f7ff;
++  font: inherit;
++  font-size: 11px;
++  font-weight: 500;
++}
++
++.ai-planner-field input::placeholder,
++.ai-planner-field textarea::placeholder { color: #829bb9; }
++.ai-planner-field input[type="date"] { color-scheme: dark; }
++.ai-planner-field textarea { resize: vertical; line-height: 1.45; }
++
++.ai-planner-repositories {
++  min-width: 0;
++  padding: 9px;
++  border: 1px solid rgba(148, 183, 224, .22);
 +  border-radius: 9px;
-+  background: #1760a9;
++}
++
++.ai-planner-repositories legend {
++  padding: 0 4px;
++  color: #e3eefc;
++  font-size: 10px;
++  font-weight: 700;
++}
++
++.ai-planner-repo-list {
++  display: grid;
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: 4px 8px;
++  max-height: 156px;
++  overflow-y: auto;
++}
++
++.ai-planner-repo-list label {
++  display: flex;
++  align-items: flex-start;
++  gap: 7px;
++  min-width: 0;
++  padding: 6px 4px;
++  color: #dceaff;
++  font-size: 9px;
++  cursor: pointer;
++}
++
++.ai-planner-repo-list input { margin-top: 2px; accent-color: #38bdf8; }
++.ai-planner-repo-list label > span { display: grid; gap: 2px; min-width: 0; }
++.ai-planner-repo-list small { color: #90a9c8; font-size: 8px; }
++.ai-planner-repo-list > p { grid-column: 1 / -1; color: #a9bfd9; font-size: 9px; }
++
++.ai-planner-baseline,
++.ai-plan-review-card {
++  display: grid;
++  gap: 5px;
++  padding: 10px 11px;
++  border: 1px solid rgba(103, 217, 255, .2);
++  border-radius: 9px;
++  background: linear-gradient(135deg, rgba(37, 99, 235, .14), rgba(7, 19, 38, .36));
++}
++
++.ai-planner-baseline > span,
++.ai-plan-review-card > span { color: #8fbbe4; font-size: 9px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
++.ai-planner-baseline strong,
++.ai-plan-review-card strong { color: #f1f7ff; font-size: 11px; }
++.ai-planner-baseline small { color: #9eb2cc; font-size: 8px; }
++
++.ai-planner-actions {
++  display: flex;
++  align-items: center;
++  justify-content: space-between;
++  gap: 10px;
++  margin-top: 14px;
++}
++
++.ai-planner-actions .ai-planner-cancel { margin: 0; }
++
++.ai-planner-primary {
++  display: inline-flex;
++  align-items: center;
++  justify-content: center;
++  gap: 7px;
++  min-height: 34px;
++  padding: 7px 11px;
++  border: 1px solid rgba(125, 211, 252, .42);
++  border-radius: 8px;
++  background: linear-gradient(135deg, #1676d2, #2456bd);
 +  color: #fff;
-+  box-shadow: none;
++  font-size: 10px;
++  font-weight: 750;
++  cursor: pointer;
 +}
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-composer button:not(:disabled):hover { background: #1c70c0; box-shadow: none; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-preview-note { color: #9fb3c9; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-preview-note svg { color: #91c4f2; }
-+/* Assistant Markdown table and inline-formatting treatment. */
-+.ai-markdown-content { margin-top: 12px; }
-+.ai-markdown-table-wrap { max-width: 100%; margin: 10px 0 12px; overflow-x: auto; border: 1px solid rgba(148,163,184,.2); border-radius: 9px; background: rgba(5,18,36,.26); }
-+.ai-markdown-table { width: 100%; border-collapse: collapse; font-size: 10px; text-align: left; }
-+.ai-markdown-table th { position: sticky; top: 0; padding: 8px 9px; background: rgba(39,75,117,.58); color: #eaf3fc; font-size: 9px; font-weight: 700; white-space: nowrap; }
-+.ai-markdown-table td { padding: 7px 9px; border-top: 1px solid rgba(148,163,184,.12); color: #c8d6e6; white-space: nowrap; }
-+.ai-markdown-table code { color: #a9d5ff; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
-+/* Human handoff preview and approval gate components are local demo UI. */
-+.ai-handoff-link { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 7px 9px; border: 1px solid rgba(245,158,11,.25); border-radius: 7px; background: rgba(120,75,12,.16); color: #f2c879; font-size: 10px; font-weight: 650; cursor: pointer; }
-+.ai-handoff-link:hover { background: rgba(120,75,12,.26); }
-+.ai-handoff-draft { display: grid; gap: 6px; margin: 0 18px 8px; padding: 10px; border: 1px solid rgba(147,197,253,.2); border-radius: 9px; background: #0b2443; color: #c9d7e6; }
-+.ai-handoff-draft-heading { display: flex; align-items: center; justify-content: space-between; color: #edf5fd; font-size: 10px; font-weight: 700; }
-+.ai-handoff-draft-heading > span { display: flex; align-items: center; gap: 6px; }
-+.ai-handoff-draft-heading svg { color: #a5cfff; }
-+.ai-handoff-draft-heading button { display: grid; width: 23px; height: 23px; place-items: center; border: 0; border-radius: 5px; background: transparent; color: #aebed0; cursor: pointer; }
-+.ai-handoff-draft p { margin: 0; font-size: 9px; line-height: 1.45; }
-+.ai-handoff-versions { display: grid; max-height: 72px; gap: 3px; overflow: auto; padding: 5px 7px; border-radius: 5px; background: rgba(3,14,28,.28); color: #aebed0; font-size: 8px; }
-+.ai-handoff-versions code { color: #b9d9f6; font: 8px ui-monospace, SFMono-Regular, Menlo, monospace; }
-+.ai-handoff-draft small { color: #8fa6be; font-size: 8px; }
-+.ai-handoff-prepare { justify-self: end; min-height: 27px; padding: 0 9px; border: 1px solid rgba(147,197,253,.25); border-radius: 6px; background: #1760a9; color: #fff; font-size: 9px; font-weight: 650; cursor: pointer; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-handoff-draft { margin-inline: 8px; }
-+.ai-hitl-prompt { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 18px 8px; padding: 9px 10px; border: 1px solid rgba(245,158,11,.35); border-radius: 10px; background: linear-gradient(110deg, rgba(120,75,12,.2), rgba(15,29,48,.94)); box-shadow: 0 5px 16px rgba(1,8,20,.16), inset 0 1px rgba(255,255,255,.04); animation: ai-hitl-enter 220ms ease-out both; }
-+.ai-hitl-prompt { display: grid; justify-content: stretch; gap: 7px; }
-+.ai-hitl-topline { display: flex; align-items: center; gap: 7px; }
-+.ai-hitl-topline > strong { color: #f4f6f9; font-size: 10px; }
-+.ai-hitl-demo-tag { margin-left: auto; padding: 2px 5px; border: 1px solid rgba(245,158,11,.2); border-radius: 4px; color: #e9bf73; font-size: 7px; font-weight: 750; letter-spacing: .08em; }
-+.ai-hitl-plan { display: grid; gap: 5px; padding: 7px 8px; border: 1px solid rgba(180,195,213,.1); border-radius: 6px; background: rgba(3,14,28,.2); }
-+.ai-hitl-plan > span { display: grid; gap: 2px; }
-+.ai-hitl-plan small { color: #97a9bf; font-size: 8px; }
-+.ai-hitl-plan strong { color: #dce6f0; font-size: 9px; font-weight: 600; line-height: 1.35; }
-+.ai-hitl-demo-note { margin: 0; color: #d2b67f; font-size: 8px; line-height: 1.35; }
-+.ai-hitl-copy { display: flex; align-items: center; gap: 8px; min-width: 0; }
-+.ai-hitl-mark { display: grid; width: 27px; height: 27px; flex: 0 0 auto; place-items: center; border: 1px solid rgba(245,158,11,.28); border-radius: 7px; background: rgba(245,158,11,.1); color: #fbbf24; }
-+.ai-hitl-copy > span:last-child { display: grid; gap: 2px; min-width: 0; }
-+.ai-hitl-copy strong { color: #f4f6f9; font-size: 10px; }
-+.ai-hitl-copy small { overflow: hidden; color: #aebbd0; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-+.ai-hitl-actions { display: flex; flex: 0 0 auto; gap: 5px; }
-+.ai-hitl-actions button { min-height: 27px; padding: 0 9px; border: 1px solid rgba(180,195,213,.18); border-radius: 6px; background: rgba(255,255,255,.035); color: #bfcbda; font-size: 9px; font-weight: 650; cursor: pointer; }
-+.ai-hitl-actions .ai-hitl-approve { border-color: rgba(96,165,250,.4); background: #1760a9; color: #fff; }
-+.ai-hitl-actions button:hover { filter: brightness(1.12); }
-+@keyframes ai-hitl-enter { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-hitl-prompt { margin-inline: 8px; border-color: rgba(245,158,11,.25); background: linear-gradient(110deg, rgba(77,55,22,.34), rgba(6,30,61,.96)); }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-hitl-copy strong { color: #f5f7fa; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-hitl-copy small { color: #b5c4d5; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-hitl-plan { border-color: rgba(219,234,254,.1); background: rgba(4,24,48,.3); }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-hitl-plan small { color: #9bb1c8; }
-+.sidebar-ai-mode .ai-workspace--sidebar .ai-hitl-plan strong { color: #e4eef8; }
 +
- .sidebar-header {
++.ai-planner-primary:hover:not(:disabled) { background: linear-gradient(135deg, #1d9be0, #1765d1); }
++.ai-planner-primary:disabled { border-color: rgba(148, 163, 184, .18); background: #33445d; color: #91a0b4; cursor: not-allowed; }
++
++.ai-plan-review-card { margin-bottom: 11px; }
++.ai-plan-review-card p { color: #b5c8df; font-size: 9px; line-height: 1.45; overflow-wrap: anywhere; }
++.ai-plan-review-card .ai-plan-version-delta { color: #a9e8ff; font-weight: 700; }
++
++.ai-plan-checklist { display: grid; gap: 6px; }
++.ai-plan-checklist > div { display: flex; align-items: flex-start; gap: 7px; color: #dce9f8; font-size: 9px; line-height: 1.4; }
++.ai-plan-checklist svg { flex: 0 0 auto; }
++.ai-plan-checklist .is-valid svg { color: #6ee7b7; }
++.ai-plan-checklist .is-missing svg { color: #fbbf66; }
++
++.ai-planner-exceptions {
++  display: grid;
++  gap: 6px;
++  padding: 9px 10px;
++  border: 1px solid rgba(251, 191, 36, .3);
++  border-radius: 9px;
++  background: rgba(120, 74, 12, .16);
++}
++
++.ai-planner-exceptions > strong { display: flex; align-items: center; gap: 6px; color: #ffd782; font-size: 10px; }
++.ai-planner-exceptions > p { color: #c0cde0; font-size: 9px; line-height: 1.45; }
++.ai-planner-exceptions ul { display: grid; gap: 4px; padding-left: 16px; color: #f2d9a8; font-size: 8px; line-height: 1.4; }
++.ai-planner-exceptions label { display: flex; align-items: flex-start; gap: 7px; color: #e6edf7; font-size: 9px; line-height: 1.4; cursor: pointer; }
++.ai-planner-exceptions input { flex: 0 0 auto; margin-top: 2px; accent-color: #38bdf8; }
++
++.ai-planner-backend-note {
++  margin-top: 11px;
++  padding: 8px 9px;
++  border-left: 2px solid rgba(56, 189, 248, .6);
++  background: rgba(5, 19, 39, .3);
++  color: #a5bad3;
++  font-size: 8px;
++  line-height: 1.45;
++}
++
++.ai-planner-start-link { display: inline-flex; align-items: center; gap: 7px; margin-top: 4px; padding: 8px 11px; border: 1px solid rgba(125, 211, 252, .36); border-radius: 9px; background: linear-gradient(130deg, rgba(37, 99, 235, .32), rgba(14, 116, 144, .2)); color: #d9f4ff; font-size: 10px; font-weight: 750; cursor: pointer; transition: border-color 150ms ease, background 150ms ease, transform 150ms ease; }
++.ai-planner-start-link:hover { transform: translateY(-1px); border-color: rgba(125, 211, 252, .68); background: linear-gradient(130deg, rgba(37, 99, 235, .44), rgba(14, 116, 144, .3)); }
++.ai-planner-start-link:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 2px; }
++
++.ai-revert-repositories { display: grid; gap: 7px; }
++.ai-revert-repo-list { display: grid; gap: 7px; max-height: 250px; overflow-y: auto; }
++.ai-revert-repo-row { display: grid; gap: 5px; padding: 8px; border: 1px solid rgba(148, 183, 224, .15); border-radius: 8px; background: rgba(5, 19, 39, .28); }
++.ai-revert-repo-row > label:first-child { display: flex; align-items: flex-start; gap: 8px; color: #dceaff; font-size: 9px; cursor: pointer; }
++.ai-revert-repo-row input[type="checkbox"] { margin: 2px 0 0; accent-color: #38bdf8; }
++.ai-revert-repo-row > label:first-child span { display: grid; gap: 3px; }
++.ai-revert-repo-row strong { color: #edf6ff; font-size: 10px; }
++.ai-revert-repo-row small { color: #91a9c7; font-size: 8px; }
++.ai-revert-repo-row .ai-planner-field { margin-left: 22px; }
++.ai-revert-manifest-wrap { max-height: 190px; margin: 0 0 11px; overflow: auto; border: 1px solid rgba(148, 183, 224, .2); border-radius: 9px; }
++.ai-revert-manifest { width: 100%; border-collapse: collapse; color: #dbeafe; font-size: 8px; }
++.ai-revert-manifest th, .ai-revert-manifest td { padding: 7px; border-bottom: 1px solid rgba(148, 183, 224, .12); text-align: left; vertical-align: top; }
++.ai-revert-manifest th { position: sticky; top: 0; background: #102c50; color: #a9c6e8; font-size: 8px; }
++.ai-revert-manifest tr:last-child td { border-bottom: 0; }
++.ai-revert-run-steps { display: grid; gap: 10px; margin: 16px 0; }
++.ai-revert-run-steps > div { display: flex; align-items: center; gap: 9px; color: #7892b2; font-size: 10px; }
++.ai-revert-run-steps > div.is-done { color: #bfeeda; }
++.ai-revert-run-steps > div.is-active { color: #e5f5ff; }
++.ai-revert-run-steps .is-active svg { color: #60d7ff; animation: ai-revert-pulse 1s ease-in-out infinite alternate; }
++.ai-revert-run-steps .is-done svg { color: #6ee7b7; }
++.ai-revert-run-dot { width: 16px; height: 16px; border: 1px solid rgba(148, 183, 224, .3); border-radius: 50%; }
++.ai-revert-approval { display: grid; gap: 7px; padding: 12px; border: 1px solid rgba(103, 217, 255, .28); border-radius: 10px; background: linear-gradient(140deg, rgba(37, 99, 235, .2), rgba(7, 19, 38, .5)); box-shadow: inset 0 1px rgba(255,255,255,.06); }
++.ai-revert-approval > span { color: #8fdfff; font-size: 8px; font-weight: 800; letter-spacing: .09em; }
++.ai-revert-approval > strong { color: #f1f8ff; font-size: 16px; }
++.ai-revert-approval p { color: #c0d3eb; font-size: 9px; line-height: 1.45; overflow-wrap: anywhere; }
++.ai-revert-approval small { color: #f6d995; font-size: 8px; line-height: 1.45; }
++@keyframes ai-revert-pulse { from { opacity: .55; } to { opacity: 1; filter: drop-shadow(0 0 5px rgba(96, 215, 255, .6)); } }
++
+ .ai-prompt-grid {
+   display: grid;
+-  grid-template-columns: repeat(3, minmax(0, 1fr));
+-  gap: 8px;
+-  width: min(760px, 100%);
++  grid-template-columns: repeat(2, minmax(0, 1fr));
++  gap: 12px;
++  width: min(560px, 100%);
+ }
+ 
+ .ai-prompt-grid button {
++  position: relative;
    display: flex;
++  aspect-ratio: 1 / 1;
++  min-height: 0;
++  flex-direction: column;
    align-items: center;
-@@ -1579,6 +1722,18 @@ a {
-   max-width: 780px;
+-  gap: 8px;
+-  min-height: 48px;
+-  padding: 9px 10px;
+-  border: 1px solid rgba(125, 161, 211, 0.3);
+-  border-radius: 8px;
+-  background: linear-gradient(145deg, rgba(20, 43, 78, 0.94), rgba(12, 29, 55, 0.94));
++  justify-content: center;
++  gap: 9px;
++  padding: 18px;
++  border: 1px solid rgba(191, 219, 254, 0.32);
++  border-radius: 14px;
++  background:
++    linear-gradient(145deg, rgba(96, 165, 250, 0.2), rgba(59, 130, 246, 0.1) 52%, rgba(7, 19, 38, 0.24)),
++    rgba(191, 219, 254, 0.055);
+   color: #e5efff;
+-  font-size: 10px;
+-  text-align: left;
+-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
+-  transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
++  text-align: center;
++  box-shadow: 0 12px 28px rgba(2, 12, 31, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.14), inset 0 -1px 0 rgba(5, 20, 50, 0.2);
++  -webkit-backdrop-filter: blur(14px);
++  backdrop-filter: blur(14px);
++  transition: border-color var(--transition-fast), background var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast), backdrop-filter var(--transition-fast);
  }
  
-+.ai-live-indicator { width: 7px; height: 7px; border-radius: 50%; background: #38e3ad; box-shadow: 0 0 0 0 rgba(56,227,173,.5); animation: ai-live-pulse 1.4s ease-out infinite; }
-+@keyframes ai-live-pulse { 70% { box-shadow: 0 0 0 7px rgba(56,227,173,0); } 100% { box-shadow: 0 0 0 0 rgba(56,227,173,0); } }
-+.ai-run-timer { display: inline-flex; align-items: center; gap: 5px; color: #8299b7; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; }
-+.ai-run-activity { display: flex; align-items: center; gap: 9px; width: min(100%, 450px); min-height: 42px; padding: 0 12px; overflow: hidden; border: 1px solid rgba(104,145,193,.23); border-radius: 10px; background: linear-gradient(110deg, rgba(18,39,67,.96), rgba(10,25,46,.98)); box-shadow: 0 6px 18px rgba(0,0,0,.2), inset 0 1px 0 rgba(255,255,255,.055); }
-+.ai-activity-prefix { display: grid; flex: 0 0 auto; place-items: center; color: #78dafa; filter: drop-shadow(0 0 5px rgba(56,189,248,.32)); }
-+.ai-activity-label { display: grid; gap: 1px; min-width: 0; flex: 1; }
-+.ai-activity-roll { display: block; min-width: 0; overflow: hidden; color: transparent; font-size: 10px; font-weight: 650; text-overflow: ellipsis; white-space: nowrap; background: linear-gradient(100deg, #8faac8 22%, #effcff 45%, #73ddff 55%, #9ab7d6 72%); background-size: 240% 100%; background-clip: text; -webkit-background-clip: text; animation: ai-activity-shine 2.2s linear infinite, ai-activity-enter 380ms cubic-bezier(.2,.8,.2,1) both; }
-+.ai-activity-detail { overflow: hidden; color: #7389a5; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; }
-+@keyframes ai-activity-shine { to { background-position: -240% 0; } }
-+@keyframes ai-activity-enter { from { opacity: 0; transform: translateY(5px); text-shadow: 0 7px 12px rgba(56,189,248,.5); } to { opacity: 1; transform: translateY(0); text-shadow: 0 0 0 transparent; } }
-+.ai-run-activity .ai-run-timer { flex: 0 0 auto; padding-left: 8px; border-left: 1px solid rgba(148,163,184,.15); }
+ .ai-prompt-grid button:hover {
+   transform: translateY(-1px);
+-  border-color: rgba(56, 189, 248, 0.72);
+-  background: linear-gradient(145deg, rgba(23, 57, 103, 0.98), rgba(12, 38, 73, 0.98));
+-  box-shadow: 0 0 18px rgba(34, 211, 238, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.08);
++  border-color: rgba(125, 211, 252, 0.72);
++  background:
++    linear-gradient(145deg, rgba(103, 193, 255, 0.28), rgba(59, 130, 246, 0.16) 52%, rgba(7, 19, 38, 0.2)),
++    rgba(191, 219, 254, 0.09);
++  box-shadow: 0 14px 30px rgba(2, 12, 31, 0.22), 0 0 22px rgba(34, 211, 238, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.2);
++}
 +
- .ai-thinking-text {
-   display: inline-flex;
-   align-items: center;
-@@ -1707,6 +1862,9 @@ a {
-   padding-left: 17px;
++.ai-prompt-grid button:focus-visible {
++  outline: 2px solid #7dd3fc;
++  outline-offset: 3px;
  }
  
-+.ai-answer-source { display: flex; align-items: center; gap: 6px; margin: 10px 0 0; color: #8fa8c1; font-size: 9px; }
-+.ai-answer-source span { width: 5px; height: 5px; flex: 0 0 auto; border-radius: 50%; background: #68bd99; }
+-.ai-prompt-grid button svg:first-child {
++.ai-prompt-icon {
++  display: grid;
++  width: 40px;
++  height: 40px;
+   flex: 0 0 auto;
++  place-items: center;
++  border: 1px solid rgba(147, 197, 253, 0.34);
++  border-radius: 11px;
++  background: linear-gradient(145deg, rgba(96, 165, 250, 0.28), rgba(34, 211, 238, 0.1));
++  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 5px 14px rgba(2, 12, 31, 0.16);
+   color: #67d9ff;
+ }
+ 
+-.ai-prompt-grid button svg:last-child {
+-  flex: 0 0 auto;
+-  margin-left: auto;
++.ai-prompt-copy {
++  display: grid;
++  gap: 6px;
++  min-width: 0;
++  justify-items: center;
++}
 +
- .ai-review-link {
-   display: inline-flex;
-   align-items: center;
-@@ -1961,6 +2119,9 @@ a {
-   color: #8092aa;
-   box-shadow: none;
++.ai-prompt-copy strong {
++  color: #f3f7ff;
++  font-size: 12px;
++  line-height: 1.35;
++}
++
++.ai-prompt-copy small {
++  color: #a8bad3;
++  font-size: 10px;
++  line-height: 1.5;
++}
++
++.ai-prompt-grid button .ai-prompt-arrow {
++  position: absolute;
++  top: 13px;
++  right: 13px;
+   color: #8aa5c8;
  }
-+/* Distinct stop state shown while an assistant response is being generated. */
-+.ai-composer button.ai-stop-button { border-color: rgba(239,68,68,.35); background: #b83c45; color: #fff; box-shadow: 0 2px 8px rgba(127,29,29,.16); }
-+.ai-composer button.ai-stop-button:hover { background: #a92f39; box-shadow: 0 2px 8px rgba(127,29,29,.22); }
  
- .ai-preview-note {
-   display: flex;
--- 
-2.54.0 (Apple Git-157)
-
+@@ -1701,10 +2085,61 @@ a {
+ }
+ 
+ .ai-answer--arrive {
++  position: relative;
+   transform-origin: top left;
+   animation: ai-response-arrive 620ms cubic-bezier(0.16, 1, 0.3, 1) both;
+ }
+ 
++.ai-answer--arrive .ai-answer-mark {
++  position: relative;
++  overflow: hidden;
++  isolation: isolate;
++  animation: ai-answer-mark-pop 560ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
++}
++
++.ai-answer--arrive .ai-answer-mark::after {
++  position: absolute;
++  inset: -40% auto -40% -90%;
++  width: 65%;
++  background: linear-gradient(100deg, transparent, rgba(191, 245, 255, 0.72), transparent);
++  content: '';
++  pointer-events: none;
++  transform: skewX(-18deg);
++  animation: ai-answer-mark-sweep 760ms ease-out 100ms both;
++}
++
++.ai-answer--arrive .ai-answer-body > h3,
++.ai-answer--arrive .ai-answer-body > p:not(.ai-answer-source),
++.ai-answer--arrive .ai-answer-body > ul,
++.ai-answer--arrive .ai-answer-body > .ai-markdown-content,
++.ai-answer--arrive .ai-answer-source,
++.ai-answer--arrive .ai-answer-body > button {
++  animation: ai-answer-section-in 460ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
++}
++
++.ai-answer--arrive .ai-answer-body > h3 { animation-delay: 70ms; }
++.ai-answer--arrive .ai-answer-body > p:not(.ai-answer-source) { animation-delay: 140ms; }
++.ai-answer--arrive .ai-answer-body > ul,
++.ai-answer--arrive .ai-answer-body > .ai-markdown-content { animation-delay: 210ms; }
++.ai-answer--arrive .ai-answer-source { animation-delay: 300ms; }
++.ai-answer--arrive .ai-answer-body > button { animation-delay: 360ms; }
++
++@keyframes ai-answer-section-in {
++  from { opacity: 0; transform: translateY(7px); filter: blur(2px); }
++  to { opacity: 1; transform: translateY(0); filter: blur(0); }
++}
++
++@keyframes ai-answer-mark-pop {
++  from { opacity: 0.5; transform: scale(0.82); box-shadow: 0 0 0 rgba(56, 189, 248, 0); }
++  to { opacity: 1; transform: scale(1); box-shadow: 0 0 18px rgba(56, 189, 248, 0.28); }
++}
++
++@keyframes ai-answer-mark-sweep {
++  from { left: -90%; opacity: 0; }
++  20% { opacity: 1; }
++  to { left: 140%; opacity: 0; }
++}
++
+ @keyframes ai-response-arrive {
+   0% { opacity: 0; transform: translate(-18px, 10px) scale(0.975); filter: blur(5px); }
+   68% { opacity: 1; transform: translate(2px, 0) scale(1.006); filter: blur(0); }
+@@ -1896,7 +2331,7 @@ a {
+ 
+ .ai-slash-suggestions {
+   position: absolute;
+-  bottom: calc(100% + 7px);
++  bottom: 100%;
+   left: 0;
+   right: 0;
+   z-index: 60;
+@@ -2052,7 +2487,11 @@ a {
+   z-index: 1;
+   color: transparent;
+   caret-color: #f3f7ff;
+-  text-indent: 18px;
++  text-indent: 62px;
++}
++
++.ai-workspace .ai-input-shell input.ai-command-input {
++  color: transparent;
+ }
+ 
+ .ai-command-visual {
+@@ -4250,7 +4689,32 @@ a {
+   }
+ 
+   .ai-prompt-grid {
+-    grid-template-columns: minmax(0, 1fr);
++    grid-template-columns: repeat(2, minmax(0, 1fr));
++    gap: 8px;
++  }
++
++  .ai-prompt-grid button {
++    padding: 12px;
++    border-radius: 11px;
++  }
++
++  .ai-prompt-icon {
++    width: 34px;
++    height: 34px;
++    border-radius: 9px;
++  }
++
++  .ai-prompt-copy strong {
++    font-size: 10px;
++  }
++
++  .ai-prompt-copy small {
++    font-size: 8.5px;
++  }
++
++  .ai-prompt-grid button .ai-prompt-arrow {
++    top: 8px;
++    right: 8px;
+   }
+ 
+   .ai-message-list {
+@@ -6316,3 +6780,184 @@ a {
+   .form-row-3 { grid-template-columns: 1fr; }
+ }
+ 
++@media (max-width: 760px) {
++  .ai-plan-type-options,
++  .ai-planner-repo-list { grid-template-columns: minmax(0, 1fr); }
++  .ai-empty-state--planner { padding: 14px 12px; }
++}
++
++.ai-workspace--sidebar .ai-plan-type-options,
++.ai-workspace--sidebar .ai-planner-repo-list { grid-template-columns: minmax(0, 1fr); }
++
++/* Ask AI glass treatment with matching cyan-blue-white accents across page and sidebar views. */
++.ai-workspace:not(.ai-workspace--sidebar) .ai-conversation-card {
++  background:
++    radial-gradient(ellipse at 20% 12%, rgba(43, 151, 218, .2), transparent 38%),
++    radial-gradient(ellipse at 82% 28%, rgba(107, 84, 227, .14), transparent 42%),
++    linear-gradient(165deg, #0a2b50 0%, #071d3a 48%, #06152b 100%);
++  border-color: rgba(132, 190, 239, .28);
++  box-shadow: 0 18px 48px rgba(2, 10, 25, .2), inset 0 1px 0 rgba(255, 255, 255, .075);
++}
++
++.ai-workspace:not(.ai-workspace--sidebar) .ai-empty-icon {
++  position: relative;
++  width: 58px;
++  height: 58px;
++  margin-bottom: 16px;
++  overflow: visible;
++  border: 1px solid rgba(111, 224, 255, .65);
++  border-radius: 17px;
++  background: linear-gradient(140deg, #20d8d7 0%, #218de9 54%, #f7fbff 100%);
++  color: #f5ffff;
++  box-shadow: 0 0 24px rgba(27, 221, 234, .35), 0 0 44px rgba(63, 112, 240, .2), inset 0 1px 0 rgba(255, 255, 255, .3);
++}
++.ai-workspace:not(.ai-workspace--sidebar) .ai-empty-icon::before {
++  position: absolute;
++  z-index: -1;
++  inset: -14px;
++  border-radius: 24px;
++  background: linear-gradient(135deg, rgba(22, 227, 233, .26), rgba(113, 76, 242, .18));
++  content: '';
++  filter: blur(18px);
++}
++.ai-workspace:not(.ai-workspace--sidebar) .ai-empty-icon svg { filter: drop-shadow(0 1px 4px rgba(5, 22, 50, .35)); }
++
++.ai-workspace:not(.ai-workspace--sidebar) .ai-prompt-grid button {
++  border-color: rgba(157, 199, 239, .3);
++  border-radius: 16px;
++  background:
++    radial-gradient(ellipse at 50% 0%, rgba(112, 192, 255, .14), transparent 58%),
++    linear-gradient(145deg, rgba(71, 118, 165, .24), rgba(19, 48, 82, .58) 55%, rgba(9, 27, 53, .72));
++  box-shadow: 0 12px 28px rgba(0, 8, 24, .22), inset 0 1px 0 rgba(255, 255, 255, .13), inset 0 -1px 0 rgba(3, 16, 38, .26);
++  -webkit-backdrop-filter: blur(18px);
++  backdrop-filter: blur(18px);
++}
++.ai-workspace:not(.ai-workspace--sidebar) .ai-prompt-grid button:hover {
++  transform: translateY(-2px);
++  border-color: rgba(100, 222, 255, .72);
++  background:
++    radial-gradient(ellipse at 50% 0%, rgba(89, 215, 255, .23), transparent 62%),
++    linear-gradient(145deg, rgba(71, 137, 191, .32), rgba(26, 65, 112, .7) 56%, rgba(11, 30, 58, .8));
++  box-shadow: 0 16px 34px rgba(0, 8, 24, .28), 0 0 22px rgba(35, 198, 239, .12), inset 0 1px 0 rgba(255, 255, 255, .18);
++}
++.ai-workspace:not(.ai-workspace--sidebar) .ai-prompt-icon {
++  width: 48px;
++  height: 48px;
++  border-radius: 15px;
++  border-color: rgba(133, 204, 255, .36);
++  background: linear-gradient(145deg, rgba(83, 159, 222, .28), rgba(29, 74, 125, .6));
++  color: #8ce7ff;
++  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), 0 6px 16px rgba(1, 13, 34, .24), 0 0 16px rgba(47, 187, 231, .1);
++}
++.ai-workspace:not(.ai-workspace--sidebar) .ai-prompt-grid button:first-child .ai-prompt-icon {
++  border-color: rgba(103, 242, 242, .62);
++  background: linear-gradient(140deg, #10d5cd 0%, #2b8ff0 57%, #f7fbff 100%);
++  color: #fff;
++  box-shadow: 0 0 22px rgba(44, 213, 232, .26), inset 0 1px 0 rgba(255, 255, 255, .32);
++}
++.ai-workspace:not(.ai-workspace--sidebar) .ai-prompt-grid button:nth-child(n + 2) .ai-prompt-icon,
++.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button:nth-child(n + 2) .ai-prompt-icon {
++  border-color: rgba(103, 242, 242, .6);
++  background: linear-gradient(140deg, #10d5cd 0%, #2b8ff0 57%, #f7fbff 100%);
++  color: #fff;
++  box-shadow: 0 0 20px rgba(44, 213, 232, .24), inset 0 1px 0 rgba(255, 255, 255, .3);
++}
++.ai-workspace:not(.ai-workspace--sidebar) .ai-prompt-grid button:nth-child(2) .ai-prompt-icon svg,
++.ai-workspace:not(.ai-workspace--sidebar) .ai-prompt-grid button:nth-child(4) .ai-prompt-icon svg { filter: drop-shadow(0 0 4px rgba(224, 244, 255, .72)); }
++.ai-workspace:not(.ai-workspace--sidebar) .ai-prompt-grid button .ai-prompt-arrow { color: #a7d4fb; }
++
++.ai-workspace:not(.ai-workspace--sidebar) .ai-composer {
++  border: 1px solid transparent;
++  background:
++    linear-gradient(rgba(5, 24, 48, .94), rgba(5, 24, 48, .94)) padding-box,
++    linear-gradient(110deg, rgba(40, 221, 232, .9), rgba(83, 152, 255, .82) 55%, rgba(248, 252, 255, .96)) border-box;
++  box-shadow: 0 0 20px rgba(32, 190, 229, .14), 0 8px 24px rgba(1, 8, 20, .25), inset 0 1px 0 rgba(255, 255, 255, .1);
++}
++.ai-workspace:not(.ai-workspace--sidebar) .ai-composer:focus-within {
++  box-shadow: 0 0 0 3px rgba(54, 211, 239, .11), 0 0 28px rgba(84, 111, 248, .22), 0 8px 24px rgba(1, 8, 20, .25);
++}
++.ai-workspace:not(.ai-workspace--sidebar) .ai-composer button:not(.ai-stop-button) {
++  border-color: rgba(131, 224, 255, .56);
++  background: linear-gradient(140deg, #14c9d6, #347de8 64%, #f5faff);
++  color: #12345a;
++  box-shadow: 0 0 18px rgba(34, 206, 233, .3), inset 0 1px 0 rgba(255, 255, 255, .25);
++}
++.ai-workspace:not(.ai-workspace--sidebar) .ai-composer button:not(:disabled):not(.ai-stop-button):hover {
++  background: linear-gradient(140deg, #34e3e5, #448cf5 62%, #ffffff);
++  box-shadow: 0 0 24px rgba(54, 220, 242, .4);
++}
++
++/* The compact Ask AI surface has stronger sidebar-theme overrides, so mirror the same glass finish here. */
++.sidebar-ai-mode .ai-workspace--sidebar .ai-conversation-card {
++  border-color: rgba(137, 194, 245, .25);
++  background:
++    radial-gradient(ellipse at 18% 10%, rgba(40, 154, 221, .18), transparent 40%),
++    radial-gradient(ellipse at 84% 32%, rgba(231, 244, 255, .1), transparent 42%),
++    linear-gradient(165deg, #0a2b50 0%, #071d3a 50%, #06152b 100%);
++  box-shadow: 0 10px 28px rgba(2, 10, 24, .24), inset 0 1px 0 rgba(255, 255, 255, .07);
++}
++.sidebar-ai-mode .ai-workspace--sidebar .ai-empty-icon {
++  position: relative;
++  width: 58px;
++  height: 58px;
++  margin-bottom: 16px;
++  border: 1px solid rgba(111, 224, 255, .62);
++  border-radius: 17px;
++  background: linear-gradient(140deg, #20d8d7 0%, #218de9 54%, #f7fbff 100%);
++  color: #f5ffff;
++  box-shadow: 0 0 24px rgba(27, 221, 234, .3), 0 0 42px rgba(63, 112, 240, .19), inset 0 1px 0 rgba(255, 255, 255, .28);
++}
++.sidebar-ai-mode .ai-workspace--sidebar .ai-empty-icon svg { filter: drop-shadow(0 1px 4px rgba(5, 22, 50, .35)); }
++.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button {
++  border-color: rgba(157, 199, 239, .28);
++  border-radius: 15px;
++  background:
++    radial-gradient(ellipse at 50% 0%, rgba(112, 192, 255, .13), transparent 58%),
++    linear-gradient(145deg, rgba(71, 118, 165, .23), rgba(19, 48, 82, .58) 55%, rgba(9, 27, 53, .72));
++  box-shadow: 0 12px 26px rgba(0, 8, 24, .2), inset 0 1px 0 rgba(255, 255, 255, .13), inset 0 -1px 0 rgba(3, 16, 38, .24);
++}
++.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button:hover {
++  transform: translateY(-2px);
++  border-color: rgba(100, 222, 255, .7);
++  background:
++    radial-gradient(ellipse at 50% 0%, rgba(89, 215, 255, .2), transparent 62%),
++    linear-gradient(145deg, rgba(71, 137, 191, .31), rgba(26, 65, 112, .7) 56%, rgba(11, 30, 58, .8));
++  box-shadow: 0 16px 30px rgba(0, 8, 24, .27), 0 0 22px rgba(35, 198, 239, .11), inset 0 1px 0 rgba(255, 255, 255, .17);
++}
++.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-icon {
++  width: 48px;
++  height: 48px;
++  border: 1px solid rgba(133, 204, 255, .34);
++  border-radius: 15px;
++  background: linear-gradient(145deg, rgba(83, 159, 222, .27), rgba(29, 74, 125, .6));
++  color: #8ce7ff;
++  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 6px 16px rgba(1, 13, 34, .23), 0 0 16px rgba(47, 187, 231, .09);
++}
++.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button:first-child .ai-prompt-icon {
++  border-color: rgba(103, 242, 242, .6);
++  background: linear-gradient(140deg, #10d5cd 0%, #2b8ff0 57%, #f7fbff 100%);
++  color: #fff;
++  box-shadow: 0 0 20px rgba(44, 213, 232, .24), inset 0 1px 0 rgba(255, 255, 255, .3);
++}
++.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button:nth-child(2) .ai-prompt-icon svg,
++.sidebar-ai-mode .ai-workspace--sidebar .ai-prompt-grid button:nth-child(4) .ai-prompt-icon svg { filter: drop-shadow(0 0 4px rgba(224, 244, 255, .7)); }
++.sidebar-ai-mode .ai-workspace--sidebar .ai-composer {
++  border: 1px solid transparent;
++  background:
++    linear-gradient(rgba(5, 24, 48, .95), rgba(5, 24, 48, .95)) padding-box,
++    linear-gradient(110deg, rgba(40, 221, 232, .9), rgba(83, 152, 255, .82) 55%, rgba(248, 252, 255, .96)) border-box;
++  box-shadow: 0 0 20px rgba(32, 190, 229, .13), inset 0 1px 0 rgba(255, 255, 255, .08);
++}
++.sidebar-ai-mode .ai-workspace--sidebar .ai-composer:focus-within { border-color: transparent; box-shadow: 0 0 0 3px rgba(54, 211, 239, .11), 0 0 26px rgba(84, 111, 248, .2), inset 0 1px 0 rgba(255, 255, 255, .08); }
++.sidebar-ai-mode .ai-workspace--sidebar .ai-composer button:not(.ai-stop-button) {
++  border-color: rgba(131, 224, 255, .52);
++  background: linear-gradient(140deg, #14c9d6, #347de8 64%, #f5faff);
++  color: #12345a;
++  box-shadow: 0 0 17px rgba(34, 206, 233, .27), inset 0 1px 0 rgba(255, 255, 255, .23);
++}
++.sidebar-ai-mode .ai-workspace--sidebar .ai-composer button:not(:disabled):not(.ai-stop-button):hover { background: linear-gradient(140deg, #34e3e5, #448cf5 62%, #ffffff); color: #12345a; box-shadow: 0 0 22px rgba(54, 220, 242, .36); }
++
++@media (prefers-reduced-motion: reduce) {
++  .ai-workspace:not(.ai-workspace--sidebar) .ai-prompt-grid button { transition: none; }
++}
++
