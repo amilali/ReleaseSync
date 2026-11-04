@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import allstateHandsLogo from '../assets/allstate-hands-transparent.png';
 import { 
   LayoutDashboard, 
@@ -17,6 +17,24 @@ import {
 
 export default function Sidebar({ activeNav = 'Dashboard', onNavClick, onAskAI, aiMode = false, onBack, onFullScreen, assistant }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [assistantWidth, setAssistantWidth] = useState(360);
+  const [isResizing, setIsResizing] = useState(false);
+  const dragStart = useRef(null);
+  // Keep the drag-resizable assistant panel within the visible viewport.
+  const minAssistantWidth = () => Math.min(340, Math.max(280, window.innerWidth - 16));
+  const maxAssistantWidth = () => Math.max(minAssistantWidth(), Math.min(1100, window.innerWidth * 0.92));
+  const renderedAssistantWidth = Math.min(assistantWidth, maxAssistantWidth());
+  const resizeAssistant = (event) => {
+    if (!dragStart.current) return;
+    const nextWidth = Math.min(maxAssistantWidth(), Math.max(minAssistantWidth(), dragStart.current.width + event.clientX - dragStart.current.x));
+    setAssistantWidth(nextWidth);
+  };
+  const stopResizing = (event) => {
+    if (!dragStart.current) return;
+    dragStart.current = null;
+    setIsResizing(false);
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
   const navItems = [
     { name: 'Dashboard', icon: LayoutDashboard },
     { name: 'Repositories', icon: Layers },
@@ -29,7 +47,7 @@ export default function Sidebar({ activeNav = 'Dashboard', onNavClick, onAskAI, 
   ];
 
   return (
-    <aside className={`sidebar ${aiMode ? 'sidebar-ai-mode' : ''} ${isCollapsed && !aiMode ? 'sidebar-collapsed' : ''}`}>
+    <aside className={`sidebar ${aiMode ? 'sidebar-ai-mode' : ''} ${isResizing ? 'sidebar-ai-resizing' : ''} ${isCollapsed && !aiMode ? 'sidebar-collapsed' : ''}`} style={aiMode ? { width: `${renderedAssistantWidth}px`, minWidth: `${renderedAssistantWidth}px` } : undefined}>
       {aiMode ? (
         <div className="sidebar-ai-shell">
           <header className="sidebar-ai-header">
@@ -43,6 +61,34 @@ export default function Sidebar({ activeNav = 'Dashboard', onNavClick, onAskAI, 
             </button>
           </header>
           <div className="sidebar-ai-content">{assistant}</div>
+          {/* Invisible edge hit area supports pointer dragging, double-click expansion, and keyboard resizing. */}
+          <div
+            className="sidebar-ai-resize-handle"
+            role="separator"
+            aria-label="Resize AI assistant panel"
+            aria-orientation="vertical"
+            aria-valuemin={Math.round(minAssistantWidth())}
+            aria-valuemax={Math.round(maxAssistantWidth())}
+            aria-valuenow={Math.round(renderedAssistantWidth)}
+            tabIndex={0}
+            title=""
+            onPointerDown={(event) => {
+              dragStart.current = { x: event.clientX, width: renderedAssistantWidth };
+              setIsResizing(true);
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerMove={resizeAssistant}
+            onPointerUp={stopResizing}
+            onPointerCancel={stopResizing}
+            onDoubleClick={() => setAssistantWidth(maxAssistantWidth())}
+            onKeyDown={(event) => {
+              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                event.preventDefault();
+                setAssistantWidth((width) => Math.min(maxAssistantWidth(), Math.max(minAssistantWidth(), width + (event.key === 'ArrowRight' ? 32 : -32))));
+              } else if (event.key === 'Home') setAssistantWidth(Math.min(360, maxAssistantWidth()));
+              else if (event.key === 'End') setAssistantWidth(maxAssistantWidth());
+            }}
+          />
         </div>
       ) : (
         <>
